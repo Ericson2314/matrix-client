@@ -1,23 +1,26 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 module Frontend where
 
-import qualified Data.Text as T
 import Obelisk.Frontend
 import Obelisk.Route
+import Obelisk.Route.Frontend
 import Reflex.Dom.Core
 
-import Common.Api
 import Common.Route
-import Obelisk.Generated.Static
-
 
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
-  { _frontend_head = el "title" $ text "Obelisk Minimal Example"
-  , _frontend_body = do
-      text "Welcome to Obelisk!"
-      el "p" $ text $ T.pack commonStuff
-      elAttr "img" ("src" =: static @"obelisk.jpg") blank
+  { _frontend_head = el "title" $ text "Matrix"
+  , _frontend_body =
+      subRoute_ $ \case
+        FrontendRoute_Home -> do
+          login <- button "Login"
+          setRoute $ FrontendRoute_Login :/ () <$ login
+          return ()
+        FrontendRoute_Login -> do
+          blank
   }
