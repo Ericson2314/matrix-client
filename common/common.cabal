@@ -12,6 +12,6 @@ library
                , text
 
   exposed-modules:
-    Common.Api
     Common.Route
     Data.Aeson.Utils
+    Matrix.Client.Types

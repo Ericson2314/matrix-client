@@ -1,7 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Common.Api where
+module Matrix.Client.Types where
 
 import Control.Monad
 import Data.Aeson
