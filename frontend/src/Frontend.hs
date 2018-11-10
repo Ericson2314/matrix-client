@@ -9,6 +9,7 @@ import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
+import qualified Reflex.Dom.SemanticUI as SUI
 
 import Common.Route
 
@@ -18,7 +19,7 @@ frontend = Frontend
   , _frontend_body =
       subRoute_ $ \case
         FrontendRoute_Home -> do
-          login <- button "Login"
+          login <- SUI.button def $ text "Login"
           setRoute $ FrontendRoute_Login :/ () <$ login
           return ()
         FrontendRoute_Login -> do
