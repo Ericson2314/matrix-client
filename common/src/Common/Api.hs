@@ -1,4 +1,67 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Common.Api where
 
-commonStuff :: String
-commonStuff = "Here is a string defined in code common to the frontend and backend."
+import Control.Applicative
+import Control.Monad
+import Data.Aeson
+import Data.Text (Text)
+
+data LoginRequest = LoginRequest
+  { _loginRequest_identifier :: UserIdentifier
+  , _loginRequest_login :: Login
+  , _loginRequest_deviceId :: Maybe DeviceId
+  , _loginRequest_initialDeviceDisplayName :: Maybe Text
+  } deriving (Eq, Ord, Show)
+
+instance FromJSON LoginRequest where
+  parseJSON = withObject "Login Request" $ \v -> LoginRequest
+    <$> v .: "identifier"
+    <*> parseLogin v
+    <*> v .:? "device_id"
+    <*> v .:? "initial_device_display_name"
+   where
+    parseLogin v = (v .: "type") >>= \case
+      String "m.login.password" -> Login_Password <$> v .: "password"
+      _ -> mzero
+
+instance ToJSON LoginRequest where
+  toJSON (LoginRequest uid login mdid mdn) = object $ mconcat
+    [ pure $ "identifier" .= uid
+    , case login of
+        Login_Password pw ->
+          [ "type" .= String "m.login.password"
+          , "password" .= pw
+          ]
+    , "device_id" .=? mdid
+    , "initial_device_display_name" .=? mdn
+    ]
+
+data UserIdentifier
+  = UserIdentifier_User Text
+  deriving (Eq, Ord, Show)
+
+instance FromJSON UserIdentifier where
+  parseJSON = withObject "User Identifier" $ \v -> (v .: "type") >>= \case
+    String "m.id.user" -> UserIdentifier_User <$> v .: "user"
+    _ -> mzero
+
+instance ToJSON UserIdentifier where
+  toJSON = \case
+    UserIdentifier_User uid -> object
+      [ "type" .= String "m.id.user"
+      , "user" .= String uid
+      ]
+
+data Login
+  = Login_Password Text
+  deriving (Eq, Ord, Show)
+
+newtype DeviceId = DeviceId { unDeviceId :: Text }
+  deriving (Eq, Ord, Show, FromJSON, ToJSON)
+
+(.=?) :: (Alternative f, KeyValue kv, ToJSON v) => Text -> Maybe v -> f kv
+(.=?) k = \case
+  Just v -> pure $ k .= v
+  Nothing -> empty
