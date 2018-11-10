@@ -3,9 +3,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Common.Api where
 
-import Control.Applicative
 import Control.Monad
 import Data.Aeson
+import Data.Aeson.Utils
 import Data.Text (Text)
 
 data LoginRequest = LoginRequest
@@ -60,8 +60,3 @@ data Login
 
 newtype DeviceId = DeviceId { unDeviceId :: Text }
   deriving (Eq, Ord, Show, FromJSON, ToJSON)
-
-(.=?) :: (Alternative f, KeyValue kv, ToJSON v) => Text -> Maybe v -> f kv
-(.=?) k = \case
-  Just v -> pure $ k .= v
-  Nothing -> empty
