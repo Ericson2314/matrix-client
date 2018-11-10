@@ -40,6 +40,7 @@ instance ToJSON LoginRequest where
 
 data UserIdentifier
   = UserIdentifier_User Text
+  -- TODO: Add other User Identifier types
   deriving (Eq, Ord, Show)
 
 instance FromJSON UserIdentifier where
@@ -56,6 +57,7 @@ instance ToJSON UserIdentifier where
 
 data Login
   = Login_Password Text
+  -- TODO: Add token login
   deriving (Eq, Ord, Show)
 
 newtype DeviceId = DeviceId { unDeviceId :: Text }
