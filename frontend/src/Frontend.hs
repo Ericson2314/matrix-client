@@ -8,9 +8,9 @@ module Frontend where
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend
-import Reflex.Dom.Core
-import qualified Reflex.Dom.SemanticUI as SUI
+import Reflex.Dom.SemanticUI
 
+import Matrix.Client.Types
 import Common.Route
 
 frontend :: Frontend (R FrontendRoute)
@@ -19,7 +19,7 @@ frontend = Frontend
   , _frontend_body =
       subRoute_ $ \case
         FrontendRoute_Home -> do
-          login <- SUI.button def $ text "Login"
+          login <- button def $ text "Login"
           setRoute $ FrontendRoute_Login :/ () <$ login
           return ()
         FrontendRoute_Login -> do
