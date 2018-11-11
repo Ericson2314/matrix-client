@@ -64,9 +64,8 @@ loginPage = do
   response <- prerender (return never) $ performRequestAsync request
 
   el "p" $ do
-    v <- holdDyn (Nothing :: Maybe LoginResponse) $ ffor response $ \r -> do
-      body <- r ^. xhrResponse_responseText
-      Data.Aeson.decodeStrict $ encodeUtf8 body
+    v <- holdDyn (Nothing :: Maybe LoginResponse) $
+      decodeXhrResponse <$> response
     display v
 
 placeholder :: Lens' (InputElementConfig er t s) (Maybe Text)
