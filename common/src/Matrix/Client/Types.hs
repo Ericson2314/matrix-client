@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -7,6 +8,7 @@ import Control.Monad
 import Data.Aeson
 import Data.Aeson.Utils
 import Data.Text (Text)
+import GHC.Generics
 
 data LoginRequest = LoginRequest
   { _loginRequest_identifier :: UserIdentifier
@@ -62,3 +64,26 @@ data Login
 
 newtype DeviceId = DeviceId { unDeviceId :: Text }
   deriving (Eq, Ord, Show, FromJSON, ToJSON)
+
+data LoginResponse = LoginResponse
+  { _loginResponse_userId :: UserId
+  , _loginResponse_accessToken :: Text
+  , _loginResponse_homeServer :: Text
+  , _loginResponse_deviceId :: DeviceId
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON LoginResponse where
+  parseJSON = genericParseJSON options
+
+instance ToJSON LoginResponse where
+  toJSON = genericToJSON options
+
+newtype UserId = UserId { unUserId :: Text }
+  deriving (Eq, Ord, Show, FromJSON, ToJSON)
+
+options :: Options
+options = defaultOptions { fieldLabelModifier = unCamelPrefixedField }
+
+unCamelPrefixedField :: String -> String
+unCamelPrefixedField =
+  camelTo2 '_' . tail . dropWhile (/= '_') . dropWhile (== '_')
