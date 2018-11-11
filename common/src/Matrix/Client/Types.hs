@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE OverloadedStrings #-}
 module Matrix.Client.Types where
 
 import Control.Monad
@@ -63,7 +59,8 @@ data Login
   deriving (Eq, Ord, Show)
 
 newtype DeviceId = DeviceId { unDeviceId :: Text }
-  deriving (Eq, Ord, Show, FromJSON, ToJSON)
+  deriving (Eq, Ord, Show)
+  deriving newtype (FromJSON, ToJSON)
 
 data LoginResponse = LoginResponse
   { _loginResponse_userId :: UserId
@@ -79,7 +76,8 @@ instance ToJSON LoginResponse where
   toJSON = genericToJSON options
 
 newtype UserId = UserId { unUserId :: Text }
-  deriving (Eq, Ord, Show, FromJSON, ToJSON)
+  deriving (Eq, Ord, Show)
+  deriving newtype (FromJSON, ToJSON)
 
 options :: Options
 options = defaultOptions { fieldLabelModifier = unCamelPrefixedField }

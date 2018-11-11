@@ -17,8 +17,32 @@ library
                , obelisk-generated-static
                , semantic-reflex
                , text
+
   exposed-modules:
     Frontend
+
+  default-extensions:
+    DataKinds
+    DeriveAnyClass
+    DeriveGeneric
+    DerivingStrategies
+    EmptyCase
+    EmptyDataDecls
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    OverloadedStrings
+    ScopedTypeVariables
+    StandaloneDeriving
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+    TypeSynonymInstances
+
   ghc-options: -Wall
 
 executable frontend

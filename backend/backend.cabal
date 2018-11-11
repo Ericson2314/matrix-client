@@ -12,8 +12,32 @@ library
                , frontend
                , obelisk-backend
                , obelisk-route
+
   exposed-modules:
     Backend
+
+  default-extensions:
+    DataKinds
+    DeriveAnyClass
+    DeriveGeneric
+    DerivingStrategies
+    EmptyCase
+    EmptyDataDecls
+    FlexibleContexts
+    FlexibleInstances
+    GADTs
+    GeneralizedNewtypeDeriving
+    KindSignatures
+    LambdaCase
+    MultiParamTypeClasses
+    OverloadedStrings
+    ScopedTypeVariables
+    StandaloneDeriving
+    TypeApplications
+    TypeFamilies
+    TypeOperators
+    TypeSynonymInstances
+
   ghc-options: -Wall
 
 executable backend
