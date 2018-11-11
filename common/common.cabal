@@ -7,6 +7,8 @@ library
   hs-source-dirs: src
   build-depends: aeson
                , base
+               , beam-core
+               , beam-migrate
                , obelisk-route
                , mtl
                , text
