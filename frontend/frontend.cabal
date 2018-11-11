@@ -6,7 +6,11 @@ build-type: Simple
 library
   hs-source-dirs: src
   build-depends: base
+               , beam-core
+               , beam-migrate
+               , beam-sqlite
                , common
+               , obelisk-beam
                , obelisk-frontend
                , obelisk-route
                , reflex-dom
