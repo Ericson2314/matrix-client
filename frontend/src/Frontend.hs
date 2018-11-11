@@ -1,10 +1,16 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 module Frontend where
 
+import Control.Lens
+import Data.Aeson
+import Data.ByteString.Lazy (toStrict)
+import Data.Text (Text)
+import Data.Text.Encoding
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend
@@ -18,10 +24,48 @@ frontend = Frontend
   { _frontend_head = el "title" $ text "Matrix"
   , _frontend_body =
       subRoute_ $ \case
-        FrontendRoute_Home -> do
-          login <- button def $ text "Login"
-          setRoute $ FrontendRoute_Login :/ () <$ login
-          return ()
-        FrontendRoute_Login -> do
-          blank
+        FrontendRoute_Home -> homePage
+        FrontendRoute_Login -> loginPage
   }
+
+homePage :: ObeliskWidget t x (R FrontendRoute) m => m ()
+homePage = do
+  login <- button def $ text "Login"
+  setRoute $ FrontendRoute_Login :/ () <$ login
+  return ()
+
+loginPage :: ObeliskWidget t x r m => m ()
+loginPage = do
+  homeServerEl <- input def $ inputElement $ def
+    & inputElementConfig_initialValue .~ "https://matrix.org"
+    & placeholder .~ Just "Home server"
+  userNameEl <- input def $ inputElement $ def
+    & placeholder .~ Just "User name"
+  passwordEl <- input def $ inputElement $ def
+    & placeholder .~ Just "Password"
+
+  login <- button def $ text "Login"
+  let request = flip pushAlways login $ const $ do
+        hs <- sample $ current $ value homeServerEl
+        u <- sample $ current $ value userNameEl
+        pw <- sample $ current $ value passwordEl
+
+        let loginReq = LoginRequest
+              (UserIdentifier_User u)
+              (Login_Password pw)
+              Nothing
+              Nothing
+        let url = hs <> "/_matrix/client/r0/login"
+        let body = decodeUtf8 $ toStrict $ Data.Aeson.encode loginReq
+
+        return $ XhrRequest "POST" url $ def
+          & xhrRequestConfig_sendData .~ body
+
+  response <- prerender (return never) $ performRequestAsync request
+
+  el "p" $ do
+    v <- holdDyn Nothing $ view xhrResponse_responseText <$> response
+    display v
+
+placeholder :: Lens' (InputElementConfig er t s) (Maybe Text)
+placeholder = inputElementConfig_elementConfig . elementConfig_initialAttributes . at "placeholder"
