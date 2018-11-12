@@ -1,7 +1,8 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Frontend.Request.Local where
 
-import Control.Concurrent
 import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.IO.Class
@@ -10,12 +11,17 @@ import Control.Monad.Primitive
 import Control.Monad.Ref
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.Reader
+import Data.Aeson
+import Data.ByteString.Lazy (toStrict)
 import Data.Coerce
 import Data.Constraint
+import Data.Text.Encoding
 import Language.Javascript.JSaddle.Types
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
 import Reflex.Host.Class
+
+import Matrix.Client.Types
 
 import Frontend.Request
 
@@ -73,17 +79,67 @@ instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
   type PrimState (LocalFrontendRequestT t m) = PrimState m
   primitive = lift . primitive
 
-instance (Reflex t, PerformEvent t m, MonadIO (Performable m), TriggerEvent t m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
+instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
   performFrontendRequest req = performEventAsync $ ffor req $ \r k ->
-    liftIO $ void $ forkIO $ k =<< handleLocalFrontendRequest r
-  performFrontendRequest_ req = performEvent_ $ ffor req $
-    liftIO . void . forkIO . void . handleLocalFrontendRequest
+    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m @(Performable m) k c r
+  performFrontendRequest_ req = performEvent_ $ ffor req $ \r ->
+    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m @(Performable m) (const $ return ()) c r
 
-handleLocalFrontendRequest :: Monad m => FrontendRequest a -> m a
-handleLocalFrontendRequest = \case
-  FrontendRequest_Login _ -> return ()
+handleLocalFrontendRequest
+  :: forall js t m' m a. PrerenderPerformable js t m' m
+  => (a -> IO ())
+  -> LocalFrontendRequestContext t
+  -> FrontendRequest a
+  -> m ()
+handleLocalFrontendRequest k _ = \case
+  FrontendRequest_Login hs u pw -> do
+    let handleResponse = \case
+          Left e -> do
+            print e
+            k ()
+          Right r -> do
+            print $ decodeXhrResponse @LoginResponse r
+            k ()
+    let loginRequest = LoginRequest
+          (UserIdentifier_User u)
+          (Login_Password pw)
+          Nothing
+          Nothing
+    let url = hs <> "/_matrix/client/r0/login"
+    let body = decodeUtf8 $ toStrict $ Data.Aeson.encode loginRequest
 
--- TODO: Handle requests.
+    performRequestCallbackWithErrorPrerender @js @t @m' @m handleResponse $
+      XhrRequest "POST" url $ def & xhrRequestConfig_sendData .~ body
+
+performRequestCallbackWithError
+  :: (MonadJSM m, HasJSContext m, IsXhrPayload a)
+  => (Either XhrException XhrResponse -> IO ())
+  -> XhrRequest a
+  -> m ()
+performRequestCallbackWithError k req =
+  void $ newXMLHttpRequestWithError req $ liftIO . k
+
+performRequestCallbackWithErrorPrerender
+  :: forall js t m' m a
+  .  (PrerenderPerformable js t m' m, IsXhrPayload a)
+  => (Either XhrException XhrResponse -> IO ())
+  -> XhrRequest a
+  -> m ()
+performRequestCallbackWithErrorPrerender =
+  case prerenderClientDictPerformable @js @m' of
+    Nothing -> (\_ _ -> return ())
+    Just Dict -> performRequestCallbackWithError
+
+type PrerenderPerformable js t m' m = (PerformEvent t m', Performable m' ~ m, Prerender js m')
+
+type JSConstraints js m = (HasJS js m, MonadJSM m, HasJSContext m)
+
+prerenderClientDictPerformable
+  :: forall js m. Prerender js m
+  => Maybe (Dict (JSConstraints js (Performable m)))
+prerenderClientDictPerformable = ffor prerenderClientDict $
+  \(Dict :: Dict (PrerenderClientConstraint js m)) -> Dict
+
 runLocalFrontendRequestT :: LocalFrontendRequestT t m a -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) =
   runReaderT m LocalFrontendRequestContext

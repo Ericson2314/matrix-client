@@ -1,16 +1,12 @@
 module Frontend where
 
 import Control.Lens
-import Data.Aeson
-import Data.ByteString.Lazy (toStrict)
 import Data.Text (Text)
-import Data.Text.Encoding
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend
 import Reflex.Dom.SemanticUI
 
-import Matrix.Client.Types
 import Common.Route
 
 import Frontend.Request
@@ -41,30 +37,11 @@ loginPage = do
     & placeholder .~ Just "Password"
 
   login <- button def $ text "Login"
-  let request = flip pushAlways login $ const $ do
-        hs <- sample $ current $ value homeServerEl
-        u <- sample $ current $ value userNameEl
-        pw <- sample $ current $ value passwordEl
-
-        let loginReq = LoginRequest
-              (UserIdentifier_User u)
-              (Login_Password pw)
-              Nothing
-              Nothing
-        let url = hs <> "/_matrix/client/r0/login"
-        let body = decodeUtf8 $ toStrict $ Data.Aeson.encode loginReq
-
-        return $ XhrRequest "POST" url $ def
-          & xhrRequestConfig_sendData .~ body
-
-  response <- prerender (return never) $
-    fmap decodeXhrResponse <$> performRequestAsync request
-
-  performFrontendRequest_ $ FrontendRequest_Login <$> fmapMaybe id response
-
-  el "p" $ do
-    v <- holdDyn (Nothing :: Maybe LoginResponse) $ response
-    display v
+  performFrontendRequest_ $ flip pushAlways login $ const $
+    FrontendRequest_Login
+      <$> (sample $ current $ value homeServerEl)
+      <*> (sample $ current $ value userNameEl)
+      <*> (sample $ current $ value passwordEl)
 
 placeholder :: Lens' (InputElementConfig er t s) (Maybe Text)
 placeholder = inputElementConfig_elementConfig . elementConfig_initialAttributes . at "placeholder"
