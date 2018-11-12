@@ -1,5 +1,7 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Frontend.Schema where
 
+import Control.Lens
 import Data.Text
 import Database.Beam
 import Database.Beam.Migrate
@@ -15,6 +17,8 @@ data Login f = Login
   , _login_deviceId :: Columnar (Nullable f) M.DeviceId
   , _login_isActive :: Columnar f Bool
   } deriving (Generic, Beamable)
+mkLenses ''Login
+
 
 type instance Key Login = Id M.UserId
 
