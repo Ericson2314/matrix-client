@@ -17,6 +17,7 @@ import Data.Text.Encoding
 import Language.Javascript.JSaddle.Types
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
+import Reflex.Dom.Prerender.Performable
 import Reflex.Host.Class
 
 import Matrix.Client.Types
@@ -78,16 +79,16 @@ instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
 
 instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
   performFrontendRequest req = performEventAsync $ ffor req $ \r k ->
-    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m @(Performable m) k c r
+    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m k c r
   performFrontendRequest_ req = performEvent_ $ ffor req $ \r ->
-    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m @(Performable m) (const $ return ()) c r
+    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m (const $ return ()) c r
 
 handleLocalFrontendRequest
-  :: forall js t m' m a. PrerenderPerformable js t m' m
+  :: forall js t m a. (PerformEvent t m, Prerender js m)
   => (a -> IO ())
   -> LocalFrontendRequestContext t
   -> FrontendRequest a
-  -> m ()
+  -> Performable m ()
 handleLocalFrontendRequest k _ = \case
   FrontendRequest_Login hs u pw -> do
     let handleResponse = \case
@@ -105,37 +106,26 @@ handleLocalFrontendRequest k _ = \case
     let url = hs <> "/_matrix/client/r0/login"
     let body = decodeUtf8 $ toStrict $ Data.Aeson.encode loginRequest
 
-    performRequestCallbackWithErrorPrerender @js @t @m' @m handleResponse $
+    performRequestCallbackWithErrorPrerender @js @t @m handleResponse $
       XhrRequest "POST" url $ def & xhrRequestConfig_sendData .~ body
 
 performRequestCallbackWithError
-  :: (MonadJSM m, HasJSContext m, IsXhrPayload a)
+  :: forall m a. (MonadJSM m, HasJSContext m, IsXhrPayload a)
   => (Either XhrException XhrResponse -> IO ())
   -> XhrRequest a
   -> m ()
 performRequestCallbackWithError k req =
   void $ newXMLHttpRequestWithError req $ liftIO . k
 
+-- | No-op on prerender.
 performRequestCallbackWithErrorPrerender
-  :: forall js t m' m a
-  .  (PrerenderPerformable js t m' m, IsXhrPayload a)
+  :: forall js t m a. (PerformEvent t m, Prerender js m, IsXhrPayload a)
   => (Either XhrException XhrResponse -> IO ())
   -> XhrRequest a
-  -> m ()
-performRequestCallbackWithErrorPrerender =
-  case prerenderClientDictPerformable @js @m' of
-    Nothing -> (\_ _ -> return ())
-    Just Dict -> performRequestCallbackWithError
-
-type PrerenderPerformable js t m' m = (PerformEvent t m', Performable m' ~ m, Prerender js m')
-
-type JSConstraints js m = (HasJS js m, MonadJSM m, HasJSContext m)
-
-prerenderClientDictPerformable
-  :: forall js m. Prerender js m
-  => Maybe (Dict (JSConstraints js (Performable m)))
-prerenderClientDictPerformable = ffor prerenderClientDict $
-  \(Dict :: Dict (PrerenderClientConstraint js m)) -> Dict
+  -> Performable m ()
+performRequestCallbackWithErrorPrerender k req =
+  prerenderPerformable @js @m (return ()) $
+    performRequestCallbackWithError @(Performable m) @a k req
 
 runLocalFrontendRequestT :: LocalFrontendRequestT t m a -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) =
