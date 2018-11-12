@@ -1,15 +1,17 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Frontend.Request.Local where
 
+import Control.Concurrent
+import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.IO.Class
 import Control.Monad.Exception
 import Control.Monad.Primitive
 import Control.Monad.Ref
 import Control.Monad.Trans.Class
+import Control.Monad.Trans.Reader
 import Data.Coerce
 import Data.Constraint
-import Data.Functor.Identity
 import Language.Javascript.JSaddle.Types
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
@@ -17,8 +19,12 @@ import Reflex.Host.Class
 
 import Frontend.Request
 
+data LocalFrontendRequestContext t = LocalFrontendRequestContext
+  {
+  }
+
 newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
-  { unLocalFrontendRequestT :: RequesterT t FrontendRequest Identity m a
+  { unLocalFrontendRequestT :: ReaderT (LocalFrontendRequestContext t) m a
   } deriving newtype
     ( Functor
     , Applicative
@@ -67,10 +73,17 @@ instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
   type PrimState (LocalFrontendRequestT t m) = PrimState m
   primitive = lift . primitive
 
-instance (Reflex t, Monad m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
-  performFrontendRequest = LocalFrontendRequestT . requestingIdentity
-  performFrontendRequest_ = LocalFrontendRequestT . requesting_
+instance (Reflex t, PerformEvent t m, MonadIO (Performable m), TriggerEvent t m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
+  performFrontendRequest req = performEventAsync $ ffor req $ \r k ->
+    liftIO $ void $ forkIO $ k =<< handleLocalFrontendRequest r
+  performFrontendRequest_ req = performEvent_ $ ffor req $
+    liftIO . void . forkIO . void . handleLocalFrontendRequest
+
+handleLocalFrontendRequest :: Monad m => FrontendRequest a -> m a
+handleLocalFrontendRequest = \case
+  FrontendRequest_Login _ -> return ()
 
 -- TODO: Handle requests.
-runLocalFrontendRequestT :: (Reflex t, Monad m) => LocalFrontendRequestT t m a -> m a
-runLocalFrontendRequestT (LocalFrontendRequestT m) = fst <$> runRequesterT m never
+runLocalFrontendRequestT :: LocalFrontendRequestT t m a -> m a
+runLocalFrontendRequestT (LocalFrontendRequestT m) =
+  runReaderT m LocalFrontendRequestContext
