@@ -18,6 +18,9 @@ library
     Data.Aeson.Utils
     Matrix.Client.Types
 
+  other-modules:
+    Database.Beam.Matrix.Orphans
+
   default-extensions:
     AllowAmbiguousTypes
     ConstraintKinds
