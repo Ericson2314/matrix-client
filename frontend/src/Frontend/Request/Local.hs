@@ -17,8 +17,8 @@ import Reflex.Host.Class
 
 import Frontend.Request
 
-newtype FrontendRequestT t m a = FrontendRequestT
-  { unFrontendRequestT :: RequesterT t FrontendRequest Identity m a
+newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
+  { unLocalFrontendRequestT :: RequesterT t FrontendRequest Identity m a
   } deriving newtype
     ( Functor
     , Applicative
@@ -43,34 +43,34 @@ newtype FrontendRequestT t m a = FrontendRequestT
     )
 
 -- It looks like a GHC bug prevents this from being derived.
-instance (MonadHold t m, MonadFix m, Adjustable t m) => Adjustable t (FrontendRequestT t m) where
-  runWithReplace a0 a' = FrontendRequestT $ runWithReplace (coerce a0) (coerceEvent a')
-  traverseDMapWithKeyWithAdjust f dm0 dm' = FrontendRequestT $ traverseDMapWithKeyWithAdjust (\k v -> unFrontendRequestT $ f k v) (coerce dm0) (coerceEvent dm')
-  traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = FrontendRequestT $ traverseDMapWithKeyWithAdjustWithMove (\k v -> unFrontendRequestT $ f k v) (coerce dm0) (coerceEvent dm')
-  traverseIntMapWithKeyWithAdjust f dm0 dm' = FrontendRequestT $ traverseIntMapWithKeyWithAdjust (coerce . f) dm0 dm'
+instance (MonadHold t m, MonadFix m, Adjustable t m) => Adjustable t (LocalFrontendRequestT t m) where
+  runWithReplace a0 a' = LocalFrontendRequestT $ runWithReplace (coerce a0) (coerceEvent a')
+  traverseDMapWithKeyWithAdjust f dm0 dm' = LocalFrontendRequestT $ traverseDMapWithKeyWithAdjust (\k v -> unLocalFrontendRequestT $ f k v) (coerce dm0) (coerceEvent dm')
+  traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = LocalFrontendRequestT $ traverseDMapWithKeyWithAdjustWithMove (\k v -> unLocalFrontendRequestT $ f k v) (coerce dm0) (coerceEvent dm')
+  traverseIntMapWithKeyWithAdjust f dm0 dm' = LocalFrontendRequestT $ traverseIntMapWithKeyWithAdjust (coerce . f) dm0 dm'
 
 -- It looks like a GHC bug prevents this from being derived.
-instance Prerender js m => Prerender js (FrontendRequestT t m) where
+instance Prerender js m => Prerender js (LocalFrontendRequestT t m) where
   prerenderClientDict = fmap (\Dict -> Dict) (prerenderClientDict :: Maybe (Dict (PrerenderClientConstraint js m)))
 
 -- It looks like a GHC bug prevents this from being derived.
-instance (Monad m, SetRoute t r m) => SetRoute t r (FrontendRequestT t m) where
+instance (Monad m, SetRoute t r m) => SetRoute t r (LocalFrontendRequestT t m) where
   setRoute = lift . setRoute
   modifyRoute = lift . modifyRoute
 
 -- It looks like a GHC bug prevents this from being derived.
-instance (Monad m, RouteToUrl r m) => RouteToUrl r (FrontendRequestT t m) where
+instance (Monad m, RouteToUrl r m) => RouteToUrl r (LocalFrontendRequestT t m) where
   askRouteToUrl = lift $ askRouteToUrl
 
 -- TODO: Add the missing instance for RequesterT to reflex.
-instance PrimMonad m => PrimMonad (FrontendRequestT t m) where
-  type PrimState (FrontendRequestT t m) = PrimState m
+instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
+  type PrimState (LocalFrontendRequestT t m) = PrimState m
   primitive = lift . primitive
 
-instance (Reflex t, Monad m) => MonadFrontendRequest t (FrontendRequestT t m) where
-  performFrontendRequest = FrontendRequestT . requestingIdentity
-  performFrontendRequest_ = FrontendRequestT . requesting_
+instance (Reflex t, Monad m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
+  performFrontendRequest = LocalFrontendRequestT . requestingIdentity
+  performFrontendRequest_ = LocalFrontendRequestT . requesting_
 
 -- TODO: Handle requests.
-runFrontendRequestT :: (Reflex t, Monad m) => FrontendRequestT t m a -> m a
-runFrontendRequestT (FrontendRequestT m) = fst <$> runRequesterT m never
+runLocalFrontendRequestT :: (Reflex t, Monad m) => LocalFrontendRequestT t m a -> m a
+runLocalFrontendRequestT (LocalFrontendRequestT m) = fst <$> runRequesterT m never

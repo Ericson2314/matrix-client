@@ -19,7 +19,7 @@ import Frontend.Request.Local
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = el "title" $ text "Matrix"
-  , _frontend_body = mapRoutedT runFrontendRequestT $ subRoute_ $ \case
+  , _frontend_body = mapRoutedT runLocalFrontendRequestT $ subRoute_ $ \case
       FrontendRoute_Home -> homePage
       FrontendRoute_Login -> loginPage
   }
