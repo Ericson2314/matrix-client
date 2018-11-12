@@ -72,7 +72,6 @@ instance (Monad m, SetRoute t r m) => SetRoute t r (LocalFrontendRequestT t m) w
 instance (Monad m, RouteToUrl r m) => RouteToUrl r (LocalFrontendRequestT t m) where
   askRouteToUrl = lift $ askRouteToUrl
 
--- TODO: Add the missing instance for RequesterT to reflex.
 instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
   type PrimState (LocalFrontendRequestT t m) = PrimState m
   primitive = lift . primitive
