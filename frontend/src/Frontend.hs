@@ -14,6 +14,7 @@ import Matrix.Client.Types
 import Common.Route
 
 import Frontend.Request
+import Frontend.Request.Local
 
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
