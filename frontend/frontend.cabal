@@ -21,6 +21,11 @@ library
   exposed-modules:
     Frontend
 
+  other-modules:
+    Frontend.Request
+    Frontend.Request.Local
+    Frontend.Schema
+
   default-extensions:
     AllowAmbiguousTypes
     ConstraintKinds
