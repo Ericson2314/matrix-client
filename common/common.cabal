@@ -27,6 +27,7 @@ library
     EmptyDataDecls
     FlexibleContexts
     FlexibleInstances
+    FunctionalDependencies
     GADTs
     GeneralizedNewtypeDeriving
     KindSignatures

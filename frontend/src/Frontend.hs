@@ -13,13 +13,14 @@ import Reflex.Dom.SemanticUI
 import Matrix.Client.Types
 import Common.Route
 
+import Frontend.Request
+
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = el "title" $ text "Matrix"
-  , _frontend_body =
-      subRoute_ $ \case
-        FrontendRoute_Home -> homePage
-        FrontendRoute_Login -> loginPage
+  , _frontend_body = mapRoutedT runFrontendRequestT $ subRoute_ $ \case
+      FrontendRoute_Home -> homePage
+      FrontendRoute_Login -> loginPage
   }
 
 homePage :: ObeliskWidget t x (R FrontendRoute) m => m ()
@@ -28,7 +29,7 @@ homePage = do
   setRoute $ FrontendRoute_Login :/ () <$ login
   return ()
 
-loginPage :: ObeliskWidget t x r m => m ()
+loginPage :: (ObeliskWidget t x r m, MonadFrontendRequest t m) => m ()
 loginPage = do
   homeServerEl <- input def $ inputElement $ def
     & inputElementConfig_initialValue .~ "https://matrix.org"
@@ -55,11 +56,13 @@ loginPage = do
         return $ XhrRequest "POST" url $ def
           & xhrRequestConfig_sendData .~ body
 
-  response <- prerender (return never) $ performRequestAsync request
+  response <- prerender (return never) $
+    fmap decodeXhrResponse <$> performRequestAsync request
+
+  performFrontendRequest_ $ FrontendRequest_Login <$> fmapMaybe id response
 
   el "p" $ do
-    v <- holdDyn (Nothing :: Maybe LoginResponse) $
-      decodeXhrResponse <$> response
+    v <- holdDyn (Nothing :: Maybe LoginResponse) $ response
     display v
 
 placeholder :: Lens' (InputElementConfig er t s) (Maybe Text)
