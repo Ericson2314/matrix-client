@@ -1,5 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Frontend.Request.Local where
 

@@ -22,6 +22,8 @@ library
     Frontend
 
   default-extensions:
+    AllowAmbiguousTypes
+    ConstraintKinds
     DataKinds
     DeriveAnyClass
     DeriveGeneric

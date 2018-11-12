@@ -19,6 +19,8 @@ library
     Matrix.Client.Types
 
   default-extensions:
+    AllowAmbiguousTypes
+    ConstraintKinds
     DataKinds
     DeriveAnyClass
     DeriveGeneric

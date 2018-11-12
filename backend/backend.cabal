@@ -17,6 +17,8 @@ library
     Backend
 
   default-extensions:
+    AllowAmbiguousTypes
+    ConstraintKinds
     DataKinds
     DeriveAnyClass
     DeriveGeneric
