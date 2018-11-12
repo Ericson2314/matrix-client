@@ -22,6 +22,7 @@ library
     Frontend
 
   other-modules:
+    Frontend.DB
     Frontend.Request
     Frontend.Request.Local
     Frontend.Schema
