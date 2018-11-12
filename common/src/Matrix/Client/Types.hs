@@ -82,6 +82,9 @@ newtype UserId = UserId { unUserId :: Text }
 options :: Options
 options = defaultOptions { fieldLabelModifier = unCamelPrefixedField }
 
+-- | Strips a field name of its type name and separating underscore (optionally
+-- preceeded by an initial underscore as well) and converts CamelCase to
+-- lowercase_with_underscores.
 unCamelPrefixedField :: String -> String
 unCamelPrefixedField =
   camelTo2 '_' . tail . dropWhile (/= '_') . dropWhile (== '_')
