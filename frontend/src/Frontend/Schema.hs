@@ -17,8 +17,8 @@ data Login f = Login
   , _login_deviceId :: Columnar (Nullable f) M.DeviceId
   , _login_isActive :: Columnar f Bool
   } deriving (Generic, Beamable)
-mkLenses ''Login
 
+makeLenses ''Login
 
 type instance Key Login = Id M.UserId
 
