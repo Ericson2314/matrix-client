@@ -200,6 +200,7 @@ runLocalFrontendRequestT
   => LocalFrontendRequestT t m a
   -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
+  -- TODO: Find some way to close the DB connection when the app is exited.
   conn <- prerender (return Nothing) $ liftIO $ fmap Just $ newMVar =<< initDb
   runReaderT m $ LocalFrontendRequestContext
     { _localFrontendRequestContext_connection = conn
