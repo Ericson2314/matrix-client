@@ -10,6 +10,7 @@ import Frontend.Schema
 initDb :: IO Sqlite.Connection
 initDb = do
   conn <- open =<< getDbPath
+  -- TODO: Use config to determine whether to auto-migrate or not.
   runBeamSqlite conn $ autoMigrate migrationBackend checkedDb
   return conn
 
