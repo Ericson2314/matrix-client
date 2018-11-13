@@ -1,6 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Frontend.Request.Local where
 
+import Control.Concurrent
 import Control.Monad
 import Control.Monad.Fix
 import Control.Monad.IO.Class
@@ -15,6 +16,7 @@ import Data.Coerce
 import Data.Constraint
 import Data.Text (Text)
 import Data.Text.Encoding
+import Database.SQLite.Simple
 import Language.Javascript.JSaddle.Types
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
@@ -23,6 +25,7 @@ import Reflex.Host.Class
 
 import Matrix.Client.Types
 
+import Frontend.DB
 import Frontend.Request
 
 data XhrResponseParse response error
@@ -34,7 +37,7 @@ data XhrResponseParse response error
   deriving (Eq, Ord, Show)
 
 data LocalFrontendRequestContext t = LocalFrontendRequestContext
-  {
+  { _localFrontendRequestContext_connection :: Maybe (MVar Connection)
   }
 
 newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
@@ -148,6 +151,12 @@ performRequestCallbackWithErrorPrerender k req =
   prerenderPerformable @js @m (return ()) $
     performRequestCallbackWithError @(Performable m) @a k req
 
-runLocalFrontendRequestT :: LocalFrontendRequestT t m a -> m a
-runLocalFrontendRequestT (LocalFrontendRequestT m) =
-  runReaderT m LocalFrontendRequestContext
+runLocalFrontendRequestT
+  :: (Monad m, Prerender js m)
+  => LocalFrontendRequestT t m a
+  -> m a
+runLocalFrontendRequestT (LocalFrontendRequestT m) = do
+  conn <- prerender (return Nothing) $ liftIO $ fmap Just $ newMVar =<< initDb
+  runReaderT m $ LocalFrontendRequestContext
+    { _localFrontendRequestContext_connection = conn
+    }
