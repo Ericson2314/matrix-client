@@ -1,32 +1,36 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Frontend.Request.Local where
 
-import Control.Concurrent
-import Control.Monad
-import Control.Monad.Fix
-import Control.Monad.IO.Class
-import Control.Monad.Exception
-import Control.Monad.Primitive
-import Control.Monad.Ref
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.Reader
-import Data.Aeson
-import Data.ByteString.Lazy (toStrict)
-import Data.Coerce
-import Data.Constraint
-import Data.Text (Text)
-import Data.Text.Encoding
-import Database.SQLite.Simple
-import Language.Javascript.JSaddle.Types
-import Obelisk.Route.Frontend
-import Reflex.Dom.Core
-import Reflex.Dom.Prerender.Performable
-import Reflex.Host.Class
+import           Control.Concurrent
+import           Control.Monad
+import           Control.Monad.Fix
+import           Control.Monad.IO.Class
+import           Control.Monad.Exception
+import           Control.Monad.Primitive
+import           Control.Monad.Ref
+import           Control.Monad.Trans.Class
+import           Control.Monad.Trans.Reader
+import           Data.Aeson
+import           Data.ByteString.Lazy (toStrict)
+import           Data.Coerce
+import           Data.Constraint
+import           Data.Text (Text)
+import           Data.Text.Encoding
+import           Database.Beam
+import           Database.Beam.Sqlite
+import qualified Database.SQLite.Simple as Sqlite
+import           Language.Javascript.JSaddle.Types
+import           Obelisk.Database.Beam.Entity
+import           Obelisk.Route.Frontend
+import           Reflex.Dom.Core hiding (select)
+import           Reflex.Dom.Prerender.Performable
+import           Reflex.Host.Class
 
-import Matrix.Client.Types
+import           Matrix.Client.Types
 
-import Frontend.DB
-import Frontend.Request
+import           Frontend.DB
+import           Frontend.Request
+import           Frontend.Schema
 
 data XhrResponseParse response error
   = XhrResponseParse_XhrException XhrException
@@ -37,7 +41,7 @@ data XhrResponseParse response error
   deriving (Eq, Ord, Show)
 
 data LocalFrontendRequestContext t = LocalFrontendRequestContext
-  { _localFrontendRequestContext_connection :: Maybe (MVar Connection)
+  { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
   }
 
 newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
@@ -101,7 +105,7 @@ handleLocalFrontendRequest
   -> LocalFrontendRequestContext t
   -> FrontendRequest a
   -> Performable m ()
-handleLocalFrontendRequest k _ = \case
+handleLocalFrontendRequest k c = \case
   FrontendRequest_Login hs u pw -> do
     let loginRequest = LoginRequest
           (UserIdentifier_User u)
@@ -109,10 +113,50 @@ handleLocalFrontendRequest k _ = \case
           Nothing
           Nothing
     let url = hs <> "/_matrix/client/r0/login"
-    performXhrCallbackWithErrorPrerenderJSON @js @t @m "POST" url loginRequest $
-      \(r :: XhrResponseParse Data.Aeson.Value LoginResponse) -> do
+    performXhrCallbackWithErrorPrerenderJSON @js @t @m "POST" url loginRequest $ \case
+      XhrResponseParse_Success r -> do
+        void $ withConnection c $ \conn -> runBeamSqlite conn $ do
+          -- TODO: Add upsert support for beam-sqlite.
+          old <- runSelectReturningOne $ lookup_ (dbLogin db) $
+            EntityKey $ Id $ UserId u
+          -- TODO: Add entity_value lens to obelisk-beam.
+          runUpdate $ update (dbLogin db)
+            (\login -> (_login_isActive $ _entity_value login) <-. val_ False)
+            (\_ -> val_ True)
+          let new = Entity (Id $ UserId u) $ Login
+                { _login_homeServer = hs
+                , _login_accessToken = Just $ _loginResponse_accessToken r
+                , _login_deviceId = Just $ _loginResponse_deviceId r
+                , _login_isActive = True
+                }
+          case old of
+            Nothing -> runInsert $ insert (dbLogin db) $ insertValues [new]
+            Just _ -> runUpdate $ save (dbLogin db) new
+        k ()
+      XhrResponseParse_Failure (r :: Data.Aeson.Value) -> do
         print r
         k ()
+      r -> do
+        print r
+        k ()
+
+withConnection
+  :: MonadIO m
+  => LocalFrontendRequestContext t
+  -> (Sqlite.Connection -> m a)
+  -> m (Maybe a)
+withConnection c k = forM (_localFrontendRequestContext_connection c) $
+  k <=< liftIO . readMVar
+
+withConnectionTransaction
+  :: MonadIO m
+  => LocalFrontendRequestContext t
+  -> (Sqlite.Connection -> IO a)
+  -> m (Maybe a)
+withConnectionTransaction c k =
+  forM (_localFrontendRequestContext_connection c) $ \mvc -> liftIO $ do
+    conn <- readMVar mvc
+    Sqlite.withTransaction conn $ k conn
 
 performXhrCallbackWithErrorPrerenderJSON
   :: forall js t m request response error
