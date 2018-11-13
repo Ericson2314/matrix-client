@@ -8,6 +8,7 @@ import Database.Beam.Backend
 import Database.Beam.Migrate
 
 import Matrix.Client.Types
+import Matrix.Identifiers
 
 deriving newtype instance (HasSqlValueSyntax be Text) => HasSqlValueSyntax be DeviceId
 deriving newtype instance (BeamSqlBackend be, HasSqlEqualityCheck be Text) => HasSqlEqualityCheck be DeviceId

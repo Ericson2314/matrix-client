@@ -6,17 +6,21 @@ build-type: Simple
 library
   hs-source-dirs: src
   build-depends: aeson
+               , attoparsec
                , base
                , beam-core
                , beam-migrate
-               , obelisk-route
+               , ip
+               , modern-uri
                , mtl
+               , obelisk-route
                , text
 
   exposed-modules:
     Common.Route
     Data.Aeson.Utils
     Matrix.Client.Types
+    Matrix.Identifiers
 
   other-modules:
     Database.Beam.Matrix.Orphans

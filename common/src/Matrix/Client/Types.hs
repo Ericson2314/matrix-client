@@ -8,6 +8,8 @@ import Data.Aeson.Utils
 import Data.Text (Text)
 import GHC.Generics
 
+import Matrix.Identifiers
+
 data LoginRequest = LoginRequest
   { _loginRequest_identifier :: UserIdentifier
   , _loginRequest_login :: Login
@@ -76,10 +78,6 @@ instance FromJSON LoginResponse where
 
 instance ToJSON LoginResponse where
   toJSON = genericToJSON options
-
-newtype UserId = UserId { unUserId :: Text }
-  deriving (Eq, Ord, Show)
-  deriving newtype (FromJSON, ToJSON)
 
 options :: Options
 options = defaultOptions { fieldLabelModifier = unCamelPrefixedField }
