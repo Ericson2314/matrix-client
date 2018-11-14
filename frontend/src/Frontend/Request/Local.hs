@@ -2,6 +2,7 @@
 module Frontend.Request.Local where
 
 import           Control.Concurrent
+import           Control.Lens
 import           Control.Monad
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class
@@ -119,14 +120,13 @@ handleLocalFrontendRequest k c = \case
           -- TODO: Add upsert support for beam-sqlite.
           old <- runSelectReturningOne $ lookup_ (dbLogin db) $
             EntityKey $ Id $ UserId u
-          -- TODO: Add entity_value lens to obelisk-beam.
           runUpdate $ update (dbLogin db)
-            (\login -> (_login_isActive $ _entity_value login) <-. val_ False)
+            (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
             (\_ -> val_ True)
           let new = Entity (Id $ UserId u) $ Login
                 { _login_homeServer = hs
-                , _login_accessToken = Just $ _loginResponse_accessToken r
-                , _login_deviceId = Just $ _loginResponse_deviceId r
+                , _login_accessToken = Just $ r ^. loginResponse_accessToken
+                , _login_deviceId = Just $ r ^. loginResponse_deviceId
                 , _login_isActive = True
                 }
           case old of

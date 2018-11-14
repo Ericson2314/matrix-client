@@ -1,5 +1,7 @@
+{-# LANGUAGE TemplateHaskell #-}
 module Matrix.Client.Types where
 
+import Control.Lens (makeLenses)
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.Utils
@@ -88,3 +90,6 @@ options = defaultOptions { fieldLabelModifier = unCamelPrefixedField }
 unCamelPrefixedField :: String -> String
 unCamelPrefixedField =
   camelTo2 '_' . tail . dropWhile (/= '_') . dropWhile (== '_')
+
+makeLenses ''LoginResponse
+makeLenses ''LoginRequest
