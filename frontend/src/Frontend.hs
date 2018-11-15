@@ -1,17 +1,19 @@
 module Frontend where
 
-import Control.Lens
-import Control.Monad.IO.Class
-import Data.Text (Text)
-import Obelisk.Frontend
-import Obelisk.Route
-import Obelisk.Route.Frontend
-import Reflex.Dom.SemanticUI
+import           Control.Lens
+import           Control.Monad.IO.Class
+import           Data.Text (Text)
+import           Data.Vessel
+import           Obelisk.Frontend
+import           Obelisk.Route
+import           Obelisk.Route.Frontend
+import           Reflex.Dom.SemanticUI
 
-import Common.Route
+import           Common.Route
 
-import Frontend.Request
-import Frontend.Request.Local
+import           Frontend.Query
+import           Frontend.Request
+import           Frontend.Request.Local
 
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
@@ -21,9 +23,10 @@ frontend = Frontend
       FrontendRoute_Login -> loginPage
   }
 
-homePage :: ObeliskWidget t x (R FrontendRoute) m => m ()
+homePage :: (ObeliskWidget t x (R FrontendRoute) m, MonadQuery t FrontendQuery m) => m ()
 homePage = do
   login <- button def $ text "Login"
+  -- TODO: Query for logins here.
   setRoute $ FrontendRoute_Login :/ () <$ login
 
 loginPage :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()

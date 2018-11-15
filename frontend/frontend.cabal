@@ -10,13 +10,17 @@ library
                , beam-migrate
                , beam-sqlite
                , common
+               , derive
                , obelisk-beam
                , obelisk-frontend
                , obelisk-route
-               , reflex-dom
+               , monoidal-containers
                , obelisk-generated-static
+               , reflex-dom
                , semantic-reflex
                , text
+               , these
+               , vessel
 
   exposed-modules:
     Frontend
@@ -32,6 +36,7 @@ library
     ConstraintKinds
     DataKinds
     DeriveAnyClass
+    DeriveFunctor
     DeriveGeneric
     DerivingStrategies
     EmptyCase
@@ -45,6 +50,7 @@ library
     LambdaCase
     MultiParamTypeClasses
     OverloadedStrings
+    PolyKinds
     ScopedTypeVariables
     StandaloneDeriving
     TypeApplications
