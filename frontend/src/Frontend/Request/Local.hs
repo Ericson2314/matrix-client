@@ -16,6 +16,7 @@ import           Data.ByteString.Lazy (toStrict)
 import           Data.Coerce
 import           Data.Constraint
 import           Data.Text (Text)
+import qualified Data.Text as T
 import           Data.Text.Encoding
 import           Database.Beam
 import           Database.Beam.Sqlite
@@ -134,13 +135,9 @@ handleLocalFrontendRequest k c = \case
           case old of
             Nothing -> runInsert $ insert (dbLogin db) $ insertValues [new]
             Just _ -> runUpdate $ save (dbLogin db) new
-        k ()
-      XhrResponseParse_Failure (r :: Data.Aeson.Value) -> do
-        print r
-        k ()
-      r -> do
-        print r
-        k ()
+        k $ Right ()
+      XhrResponseParse_Failure e -> k $ Left $ FrontendError_ResponseError e
+      r -> k $ Left $ FrontendError_Other $ T.pack $ show r
 
 withConnection
   :: MonadIO m
