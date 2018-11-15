@@ -31,6 +31,7 @@ import           Reflex.Host.Class
 import           Matrix.Client.Types
 
 import           Frontend.DB
+import           Frontend.Query
 import           Frontend.Request
 import           Frontend.Schema
 
@@ -185,12 +186,13 @@ performRequestCallbackWithError k req =
   void $ newXMLHttpRequestWithError req $ liftIO . k
 
 runLocalFrontendRequestT
-  :: (Monad m, Prerender js m)
-  => LocalFrontendRequestT t m a
+  :: (Reflex t, MonadFix m, Prerender js m)
+  => LocalFrontendRequestT t (QueryT t (FrontendQuery SelectedCount) m) a
   -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
   -- TODO: Find some way to close the DB connection when the app is exited.
   conn <- prerender (return Nothing) $ liftIO $ fmap Just $ newMVar =<< initDb
-  runReaderT m $ LocalFrontendRequestContext
+  -- TODO: Handle queries.
+  fmap fst $ flip runQueryT (pure mempty) $ runReaderT m $ LocalFrontendRequestContext
     { _localFrontendRequestContext_connection = conn
     }

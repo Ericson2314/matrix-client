@@ -21,6 +21,7 @@ library
     ConstraintKinds
     DataKinds
     DeriveAnyClass
+    DeriveFunctor
     DeriveGeneric
     DerivingStrategies
     EmptyCase
