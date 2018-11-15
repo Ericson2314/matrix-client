@@ -95,17 +95,19 @@ instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
   primitive = lift . primitive
 
 instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
-  performFrontendRequest req = performEventAsync $ ffor req $ \r k ->
-    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m k c r
-  performFrontendRequest_ req = performEvent_ $ ffor req $ \r ->
-    ReaderT $ \c -> handleLocalFrontendRequest @js @t @m (const $ return ()) c r
+  performFrontendRequest req = performEventAsync $ ffor req $ \r k -> ReaderT $ \c ->
+    prerenderPerformable @js @m (return ()) $
+      handleLocalFrontendRequest k c r
+  performFrontendRequest_ req = performEvent_ $ ffor req $ \r -> ReaderT $ \c ->
+    prerenderPerformable @js @m (return ()) $
+      handleLocalFrontendRequest (const $ return ()) c r
 
 handleLocalFrontendRequest
-  :: forall js t m a. (PerformEvent t m, Prerender js m)
+  :: JSConstraints js m
   => (a -> IO ())
   -> LocalFrontendRequestContext t
   -> FrontendRequest a
-  -> Performable m ()
+  -> m ()
 handleLocalFrontendRequest k c = \case
   FrontendRequest_Login hs u pw -> do
     let loginRequest = LoginRequest
@@ -114,7 +116,7 @@ handleLocalFrontendRequest k c = \case
           Nothing
           Nothing
     let url = hs <> "/_matrix/client/r0/login"
-    performXhrCallbackWithErrorPrerenderJSON @js @t @m "POST" url loginRequest $ \case
+    performXhrCallbackWithErrorJSON "POST" url loginRequest $ \case
       XhrResponseParse_Success r -> do
         void $ withConnection c $ \conn -> runBeamSqlite conn $ do
           -- TODO: Add upsert support for beam-sqlite.
@@ -158,16 +160,16 @@ withConnectionTransaction c k =
     conn <- readMVar mvc
     Sqlite.withTransaction conn $ k conn
 
-performXhrCallbackWithErrorPrerenderJSON
-  :: forall js t m request response error
-  .  (PerformEvent t m, Prerender js m, ToJSON request, FromJSON response, FromJSON error)
+performXhrCallbackWithErrorJSON
+  :: forall js m request response error
+  .  (JSConstraints js m, ToJSON request, FromJSON response, FromJSON error)
   => Text
   -> Text
   -> request
   -> (XhrResponseParse response error -> IO ())
-  -> Performable m ()
-performXhrCallbackWithErrorPrerenderJSON method url request k =
-  performRequestCallbackWithErrorPrerender @js @t @m k' $
+  -> m ()
+performXhrCallbackWithErrorJSON method url request k =
+  performRequestCallbackWithError k' $
     XhrRequest method url $ def & xhrRequestConfig_sendData .~ body
  where
   body = decodeUtf8 $ toStrict $ Data.Aeson.encode request
@@ -184,16 +186,6 @@ performRequestCallbackWithError
   -> m ()
 performRequestCallbackWithError k req =
   void $ newXMLHttpRequestWithError req $ liftIO . k
-
--- | No-op on prerender.
-performRequestCallbackWithErrorPrerender
-  :: forall js t m a. (PerformEvent t m, Prerender js m, IsXhrPayload a)
-  => (Either XhrException XhrResponse -> IO ())
-  -> XhrRequest a
-  -> Performable m ()
-performRequestCallbackWithErrorPrerender k req =
-  prerenderPerformable @js @m (return ()) $
-    performRequestCallbackWithError @(Performable m) @a k req
 
 runLocalFrontendRequestT
   :: (Monad m, Prerender js m)
