@@ -25,7 +25,6 @@ homePage :: ObeliskWidget t x (R FrontendRoute) m => m ()
 homePage = do
   login <- button def $ text "Login"
   setRoute $ FrontendRoute_Login :/ () <$ login
-  return ()
 
 loginPage :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
 loginPage = do

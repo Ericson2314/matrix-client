@@ -97,11 +97,11 @@ instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
 
 instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
   performFrontendRequest req = performEventAsync $ ffor req $ \r k -> ReaderT $ \c ->
-    prerenderPerformable @js @m (return ()) $
+    prerenderPerformable @js @m blank $
       handleLocalFrontendRequest k c r
   performFrontendRequest_ req = performEvent_ $ ffor req $ \r -> ReaderT $ \c ->
-    prerenderPerformable @js @m (return ()) $
-      handleLocalFrontendRequest (const $ return ()) c r
+    prerenderPerformable @js @m blank $
+      handleLocalFrontendRequest (const blank) c r
 
 handleLocalFrontendRequest
   :: JSConstraints js m
