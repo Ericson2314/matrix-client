@@ -43,7 +43,7 @@ data XhrResponseParse response error
   | XhrResponseParse_NoParseFailure
   deriving (Eq, Ord, Show)
 
-data LocalFrontendRequestContext t = LocalFrontendRequestContext
+data LocalFrontendRequestContext (t :: *) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
   }
 
@@ -187,7 +187,7 @@ performRequestCallbackWithError k req =
 
 runLocalFrontendRequestT
   :: (Reflex t, MonadFix m, Prerender js m)
-  => LocalFrontendRequestT t (QueryT t (FV (Const SelectedCount)) m) a
+  => LocalFrontendRequestT t (QueryT t (FrontendV (Const SelectedCount)) m) a
   -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
   -- TODO: Find some way to close the DB connection when the app is exited.

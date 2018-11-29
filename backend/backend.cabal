@@ -35,6 +35,7 @@ library
     LambdaCase
     MultiParamTypeClasses
     OverloadedStrings
+    PolyKinds
     ScopedTypeVariables
     StandaloneDeriving
     TypeApplications
