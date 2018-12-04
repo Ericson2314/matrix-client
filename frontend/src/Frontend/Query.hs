@@ -1,26 +1,28 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Frontend.Query where
 
-import           Data.Align
 import           Data.Constraint.Extras.TH
-import           Data.DeriveTH
 import           Data.Functor.Identity
 import           Data.GADT.Compare.TH
-import           Data.Map (Map)
 import           Data.Semigroup
+import           Data.Set
 import           Data.Vessel
 import           Obelisk.Database.Beam.Entity
 import           Reflex
 
 import           Frontend.Schema
 
-type EntityMapV table = MapV (Key table Identity) (First (table Identity))
+type EntityMapV table = MapV (Key table Identity) (First (Maybe (table Identity)))
 
-data FrontendQuery f where
-  FrontendQuery_Login :: FrontendQuery (EntityMapV Login)
+data V f where
+  V_Login :: V (EntityMapV Login)
+  V_Logins :: V (SingleV (Set (Key Login Identity)))
 
-deriveGEq ''FrontendQuery
-deriveGCompare ''FrontendQuery
-deriveArgDictV ''FrontendQuery
+deriveGEq ''V
+deriveGCompare ''V
+deriveArgDictV ''V
 
-type FrontendV = Vessel FrontendQuery
+type FrontendV = Vessel V
+
+type FrontendQuery = FrontendV (Const SelectedCount)
+type FrontendQueryResult = FrontendV Identity

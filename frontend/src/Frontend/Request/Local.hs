@@ -1,4 +1,5 @@
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RecursiveDo #-}
 module Frontend.Request.Local where
 
 import           Control.Concurrent
@@ -15,9 +16,12 @@ import           Data.Aeson
 import           Data.ByteString.Lazy (toStrict)
 import           Data.Coerce
 import           Data.Constraint
+import qualified Data.Map.Monoidal as MM
+import           Data.Semigroup
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
+import           Data.Vessel
 import           Database.Beam
 import           Database.Beam.Sqlite
 import qualified Database.SQLite.Simple as Sqlite
@@ -45,6 +49,7 @@ data XhrResponseParse response error
 
 data LocalFrontendRequestContext (t :: *) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
+  , _localFrontendRequestContext_updateQueryResult :: FrontendV Identity -> IO ()
   }
 
 newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
@@ -70,6 +75,7 @@ newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
     , MonadJSM
     , HasJS js
     , HasJSContext
+    , MonadQuery t q
     )
 
 -- It looks like a GHC bug prevents this from being derived.
@@ -120,25 +126,32 @@ handleLocalFrontendRequest k c = \case
     let url = hs <> "/_matrix/client/r0/login"
     performXhrCallbackWithErrorJSON "POST" url loginRequest $ \case
       XhrResponseParse_Success r -> do
+        let uid = Id $ UserId u
+            newValue = Login
+              { _login_homeServer = hs
+              , _login_accessToken = Just $ r ^. loginResponse_accessToken
+              , _login_deviceId = Just $ r ^. loginResponse_deviceId
+              , _login_isActive = True
+              }
+            newEntity = Entity uid newValue
         void $ withConnection c $ \conn -> runBeamSqlite conn $ do
           -- TODO: Add upsert support for beam-sqlite.
-          old <- runSelectReturningOne $ lookup_ (dbLogin db) $
-            EntityKey $ Id $ UserId u
+          old <- runSelectReturningOne $ lookup_ (dbLogin db) $ EntityKey uid
           runUpdate $ update (dbLogin db)
             (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
             (\_ -> val_ True)
-          let new = Entity (Id $ UserId u) $ Login
-                { _login_homeServer = hs
-                , _login_accessToken = Just $ r ^. loginResponse_accessToken
-                , _login_deviceId = Just $ r ^. loginResponse_deviceId
-                , _login_isActive = True
-                }
           case old of
-            Nothing -> runInsert $ insert (dbLogin db) $ insertValues [new]
-            Just _ -> runUpdate $ save (dbLogin db) new
+            Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
+            Just _ -> runUpdate $ save (dbLogin db) newEntity
+        -- TODO: Add to V_Logins as well.
+        patchQueryResult c $ singletonV V_Login $ MapV $
+          MM.singleton uid $ Identity $ First $ Just newValue
         k $ Right ()
       XhrResponseParse_Failure e -> k $ Left $ FrontendError_ResponseError e
       r -> k $ Left $ FrontendError_Other $ T.pack $ show r
+
+patchQueryResult :: LocalFrontendRequestContext t -> FrontendV Identity -> IO ()
+patchQueryResult c = _localFrontendRequestContext_updateQueryResult c
 
 withConnection
   :: MonadIO m
@@ -186,13 +199,21 @@ performRequestCallbackWithError k req =
   void $ newXMLHttpRequestWithError req $ liftIO . k
 
 runLocalFrontendRequestT
-  :: (Reflex t, MonadFix m, Prerender js m)
+  :: (Reflex t, MonadFix m, MonadHold t m, TriggerEvent t m, MonadIO m, Prerender js m)
   => LocalFrontendRequestT t (QueryT t (FrontendV (Const SelectedCount)) m) a
   -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
   -- TODO: Find some way to close the DB connection when the app is exited.
   conn <- prerender (return Nothing) $ liftIO $ fmap Just $ newMVar =<< initDb
-  -- TODO: Handle queries.
-  fmap fst $ flip runQueryT (pure mempty) $ runReaderT m $ LocalFrontendRequestContext
-    { _localFrontendRequestContext_connection = conn
-    }
+  (queryResultPatch, updateQueryResult) <- newTriggerEvent
+  rec queryResult <- cropDyn (incrementalToDynamic q) queryResultPatch
+      (a, q) <- flip runQueryT queryResult $ runReaderT m $ LocalFrontendRequestContext
+        { _localFrontendRequestContext_connection = conn
+        , _localFrontendRequestContext_updateQueryResult = updateQueryResult
+        }
+  return a
+
+-- TODO: Expose this in reflex (currently it's hidden in reflex-dom).
+-- Also is cropping here really necessary or will `runQueryT` do it?
+cropDyn :: (Query q, MonadHold t m, Reflex t, MonadFix m) => Dynamic t q -> Event t (QueryResult q) -> m (Dynamic t (QueryResult q))
+cropDyn q = foldDyn (\(q', qr) v -> crop q' (qr `mappend` v)) mempty . attach (current q)
