@@ -4,6 +4,8 @@ module Matrix.Identifiers where
 import           Control.Applicative
 import           Control.Lens.TH
 import           Data.Aeson
+import           Data.Aeson.Types (toJSONKeyText)
+import qualified Data.Aeson.Types as Aeson (Parser)
 import           Data.Attoparsec.Text
 import           Data.Char
 import           Data.List.NonEmpty (NonEmpty(..))
@@ -56,12 +58,19 @@ parseServerName = ServerName <$> parseHost <*> optional (char ':' *> port)
       Just t <- readMaybe <$> many1 (satisfy isDigit)
       pure t
 
+runParserJson :: Parser a -> Text -> Aeson.Parser a
+runParserJson p t = case parseOnly p t of
+  Left e -> fail e
+  Right sn -> pure sn
+
 instance ToJSON ServerName where
-  toJSON sn = toJSON $ printServerName sn
+  toJSON = toJSON . printServerName
+instance ToJSONKey ServerName where
+  toJSONKey = toJSONKeyText printServerName
 instance FromJSON ServerName where
-  parseJSON = withText "server name" $ \t -> case parseOnly parseServerName t of
-    Left e -> fail e
-    Right sn -> pure sn
+  parseJSON = withText "server name" $ runParserJson parseServerName
+instance FromJSONKey ServerName where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseServerName
 
 data UserId = UserId
   { _userId_username :: Text -- good enough for now
@@ -88,7 +97,9 @@ parseUserId = do
 
 instance ToJSON UserId where
   toJSON sn = toJSON $ printUserId sn
+instance ToJSONKey UserId where
+  toJSONKey = toJSONKeyText printUserId
 instance FromJSON UserId where
-  parseJSON = withText "server name" $ \t -> case parseOnly parseUserId t of
-    Left e -> fail e
-    Right sn -> pure sn
+  parseJSON = withText "server name" $ runParserJson parseUserId
+instance FromJSONKey UserId where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseUserId
