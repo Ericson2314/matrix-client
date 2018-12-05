@@ -11,6 +11,7 @@ library
                , beam-core
                , beam-migrate
                , ip
+               , megaparsec
                , modern-uri
                , mtl
                , obelisk-route

@@ -31,7 +31,7 @@ import           Reflex.Dom.Core hiding (select)
 import           Reflex.Dom.Prerender.Performable
 import           Reflex.Host.Class
 
-import           Matrix.Client.Types as M
+import           Matrix.Client.Types as M hiding (Event)
 import           Matrix.Identifiers as M
 
 import           Frontend.DB
