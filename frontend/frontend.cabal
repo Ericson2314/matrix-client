@@ -10,6 +10,7 @@ library
                , beam-migrate
                , beam-sqlite
                , common
+               , constraints-extras
                , derive
                , obelisk-beam
                , obelisk-frontend

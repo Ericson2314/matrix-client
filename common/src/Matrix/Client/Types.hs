@@ -1,3 +1,5 @@
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Matrix.Client.Types where
 
@@ -5,10 +7,28 @@ import Control.Lens (makeLenses)
 import Control.Monad
 import Data.Aeson
 import Data.Aeson.Utils
+import Data.Constraint.Extras.TH
+import Data.DependentXhr
+import Data.Kind
+import Data.Some
 import Data.Text (Text)
 import GHC.Generics
 
 import Matrix.Identifiers
+
+-- | The Matrix interface for the client to talk to the surver.
+data ClientServer httpType route request respPerCode where
+  ClientServer_Login
+    :: ClientServer "POST" "/_matrix/client/r0/login" LoginRequest LoginRespKey
+
+data LoginRespKey :: Type -> Type where
+  LoginRespKey_Valid :: LoginRespKey LoginResponse
+  LoginRespKey_Invalid :: LoginRespKey Data.Aeson.Value
+
+instance GetStatusKey LoginRespKey where
+  lookupStatus status
+    | status >= 200 && status < 400 = Right $ This LoginRespKey_Valid
+    | otherwise = Right $ This LoginRespKey_Invalid
 
 data LoginRequest = LoginRequest
   { _loginRequest_identifier :: UserIdentifier
@@ -91,3 +111,4 @@ unCamelPrefixedField =
 
 makeLenses ''LoginResponse
 makeLenses ''LoginRequest
+deriveArgDict ''LoginRespKey

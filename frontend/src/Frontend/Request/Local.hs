@@ -4,7 +4,7 @@
 module Frontend.Request.Local where
 
 import           Control.Concurrent
-import           Control.Lens
+import           Control.Lens hiding (has)
 import           Control.Monad
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class
@@ -14,15 +14,11 @@ import           Control.Monad.Primitive
 import           Control.Monad.Ref
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.Aeson
-import           Data.ByteString.Lazy (toStrict)
 import           Data.Coerce
 import           Data.Constraint
+import           Data.DependentXhr
 import qualified Data.Map.Monoidal as MM
 import           Data.Semigroup
-import           Data.Text (Text)
-import qualified Data.Text as T
-import           Data.Text.Encoding
 import           Data.Vessel
 import           Database.Beam
 import           Database.Beam.Sqlite
@@ -34,21 +30,14 @@ import           Reflex.Dom.Core hiding (select)
 import           Reflex.Dom.Prerender.Performable
 import           Reflex.Host.Class
 
-import           Matrix.Client.Types
-import           Matrix.Identifiers
+import           Matrix.Client.Types as M
+import           Matrix.Identifiers as M
 
 import           Frontend.DB
 import           Frontend.Query
 import           Frontend.Request
 import           Frontend.Schema
 
-data XhrResponseParse response error
-  = XhrResponseParse_XhrException XhrException
-  | XhrResponseParse_Success response
-  | XhrResponseParse_Failure error
-  | XhrResponseParse_NoParseSuccess
-  | XhrResponseParse_NoParseFailure
-  deriving (Eq, Ord, Show)
 
 data LocalFrontendRequestContext (t :: *) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
@@ -132,7 +121,8 @@ instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => Monad
         handleLocalFrontendRequest (const blank) ctx r
 
 handleLocalFrontendRequest
-  :: (JSConstraints js m)
+  :: forall js m t a
+  .  JSConstraints js m
   => (a -> LoggingT IO ())
   -> LocalFrontendRequestContext t
   -> FrontendRequest a
@@ -147,32 +137,40 @@ handleLocalFrontendRequest k c = \case
           Nothing
     let url = hs <> "/_matrix/client/r0/login"
     performXhrCallbackWithErrorJSON "POST" url loginRequest $ flip runLoggingT logger . \case
-      XhrResponseParse_Success r -> do
-        let uid = r ^. loginResponse_userId
-            uid' = Id $ printUserId uid
-            newValue = Login
-              { _login_homeServer = hs
-              , _login_accessToken = Just $ r ^. loginResponse_accessToken
-              , _login_deviceId = Just $ r ^. loginResponse_deviceId
-              , _login_isActive = True
-              }
-            newEntity = Entity uid' newValue
-        liftIO $ void $ withConnection c $ \conn -> runBeamSqlite conn $ do
-          -- TODO: Add upsert support for beam-sqlite.
-          old <- runSelectReturningOne $ lookup_ (dbLogin db) $ EntityKey uid'
-          runUpdate $ update (dbLogin db)
-            (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
-            (\_ -> val_ True)
-          case old of
-            Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
-            Just _ -> runUpdate $ save (dbLogin db) newEntity
-        $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
-        -- TODO: Add to V_Logins as well.
-        lift $ patchQueryResult c $ singletonV V_Login $ MapV $
-          MM.singleton uid' $ Identity $ First $ Just newValue
-        k $ Right ()
-      XhrResponseParse_Failure e -> k $ Left $ FrontendError_ResponseError e
-      r -> k $ Left $ FrontendError_Other $ T.pack $ show r
+      Left xhrException ->
+        k $ Left $ FrontendError_Other $ Left xhrException
+      Right (Left innvalidStatus) ->
+        k $ Left $ FrontendError_Other $ Right $ Left innvalidStatus
+      Right (Right (XhrThisStatus _ (Left eNoBody))) ->
+        k $ Left $ FrontendError_Other $ Right $ Right $ Left eNoBody
+      Right (Right (XhrThisStatus _ (Right (Left eBadJson)))) ->
+        k $ Left $ FrontendError_Other $ Right $ Right $ Right eBadJson
+      Right (Right (XhrThisStatus sentinal (Right (Right r)))) -> case sentinal of
+        LoginRespKey_Invalid -> k $ Left $ FrontendError_ResponseError r
+        LoginRespKey_Valid -> do
+          let uid = r ^. loginResponse_userId
+              uid' = Id $ printUserId uid
+              newValue = Login
+                { _login_homeServer = hs
+                , _login_accessToken = Just $ r ^. loginResponse_accessToken
+                , _login_deviceId = Just $ r ^. loginResponse_deviceId
+                , _login_isActive = True
+                }
+              newEntity = Entity uid' newValue
+          liftIO $ void $ withConnection c $ \conn -> runBeamSqlite conn $ do
+            -- TODO: Add upsert support for beam-sqlite.
+            old <- runSelectReturningOne $ lookup_ (dbLogin db) $ EntityKey uid'
+            runUpdate $ update (dbLogin db)
+              (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
+              (\_ -> val_ True)
+            case old of
+              Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
+              Just _ -> runUpdate $ save (dbLogin db) newEntity
+          $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
+          -- TODO: Add to V_Logins as well.
+          lift $ patchQueryResult c $ singletonV V_Login $ MapV $
+            MM.singleton uid' $ Identity $ First $ Just newValue
+          k $ Right ()
 
 patchQueryResult :: LocalFrontendRequestContext t -> FrontendV Identity -> IO ()
 patchQueryResult c = _localFrontendRequestContext_updateQueryResult c
@@ -194,33 +192,6 @@ withConnectionTransaction c k =
   forM (_localFrontendRequestContext_connection c) $ \mvc -> liftIO $ do
     conn <- readMVar mvc
     Sqlite.withTransaction conn $ k conn
-
-performXhrCallbackWithErrorJSON
-  :: forall js m request response error
-  .  (JSConstraints js m, ToJSON request, FromJSON response, FromJSON error)
-  => Text
-  -> Text
-  -> request
-  -> (XhrResponseParse response error -> IO ())
-  -> m ()
-performXhrCallbackWithErrorJSON method url request k =
-  performRequestCallbackWithError k' $
-    XhrRequest method url $ def & xhrRequestConfig_sendData .~ body
- where
-  body = decodeUtf8 $ toStrict $ Data.Aeson.encode request
-  k' = \case
-    Left e -> k $ XhrResponseParse_XhrException e
-    Right r -> if _xhrResponse_status r >= 200 && _xhrResponse_status r < 400
-      then k $ maybe XhrResponseParse_NoParseSuccess XhrResponseParse_Success $ decodeXhrResponse r
-      else k $ maybe XhrResponseParse_NoParseFailure XhrResponseParse_Failure $ decodeXhrResponse r
-
-performRequestCallbackWithError
-  :: forall m a. (MonadJSM m, HasJSContext m, IsXhrPayload a)
-  => (Either XhrException XhrResponse -> IO ())
-  -> XhrRequest a
-  -> m ()
-performRequestCallbackWithError k req =
-  void $ newXMLHttpRequestWithError req $ liftIO . k
 
 runLocalFrontendRequestT
   :: (Reflex t, MonadFix m, MonadHold t m, TriggerEvent t m, MonadIO m, Prerender js m)
