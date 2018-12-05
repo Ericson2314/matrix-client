@@ -37,11 +37,11 @@ loginPage = do
     & placeholder .~ Just "Password"
 
   login <- button def $ text "Login"
-  loginResult <- performFrontendRequest $ flip pushAlways login $ const $
+  loginResult <- performFrontendRequest $ flip tag login $
     FrontendRequest_Login
-      <$> (sample $ current $ value homeServerEl)
-      <*> (sample $ current $ value userNameEl)
-      <*> (sample $ current $ value passwordEl)
+      <$> (current $ value homeServerEl)
+      <*> (current $ value userNameEl)
+      <*> (current $ value passwordEl)
 
   setRoute $ FrontendRoute_Home :/ () <$ filterRight loginResult
   prerender blank $ performEvent_ $ liftIO . print <$> filterLeft loginResult
