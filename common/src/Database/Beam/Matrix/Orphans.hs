@@ -8,7 +8,7 @@ import Database.Beam.Backend
 import Database.Beam.Migrate
 
 import Matrix.Client.Types
-import Matrix.Identifiers
+--import Matrix.Identifiers
 
 deriving newtype instance (HasSqlValueSyntax be Text) => HasSqlValueSyntax be DeviceId
 deriving newtype instance (BeamSqlBackend be, HasSqlEqualityCheck be Text) => HasSqlEqualityCheck be DeviceId
@@ -16,8 +16,11 @@ deriving newtype instance (BeamBackend be, FromBackendRow be Text) => FromBacken
 deriving newtype instance BeamMigrateSqlBackend be => HasDefaultSqlDataTypeConstraints be DeviceId
 deriving newtype instance BeamMigrateSqlBackend be => HasDefaultSqlDataType be DeviceId
 
-deriving newtype instance (HasSqlValueSyntax be Text) => HasSqlValueSyntax be UserId
-deriving newtype instance (BeamSqlBackend be, HasSqlEqualityCheck be Text) => HasSqlEqualityCheck be UserId
-deriving newtype instance (BeamBackend be, FromBackendRow be Text) => FromBackendRow be UserId
-deriving newtype instance BeamMigrateSqlBackend be => HasDefaultSqlDataTypeConstraints be UserId
-deriving newtype instance BeamMigrateSqlBackend be => HasDefaultSqlDataType be UserId
+-- Until https://github.com/tathougies/beam/issues/262 is resolved, this is too
+-- annoying.
+
+--deriving newtype instance (HasSqlValueSyntax be Text) => HasSqlValueSyntax be UserId
+--deriving newtype instance (BeamSqlBackend be, HasSqlEqualityCheck be Text) => HasSqlEqualityCheck be UserId
+--deriving newtype instance (BeamBackend be, FromBackendRow be Text) => FromBackendRow be UserId
+--deriving newtype instance BeamMigrateSqlBackend be => HasDefaultSqlDataTypeConstraints be UserId
+--deriving newtype instance BeamMigrateSqlBackend be => HasDefaultSqlDataType be UserId

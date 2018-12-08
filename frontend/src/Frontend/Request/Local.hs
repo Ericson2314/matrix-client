@@ -29,6 +29,7 @@ import           Reflex.Dom.Prerender.Performable
 import           Reflex.Host.Class
 
 import           Matrix.Client.Types
+import           Matrix.Identifiers
 
 import           Frontend.DB
 import           Frontend.Request
@@ -119,14 +120,16 @@ handleLocalFrontendRequest k c = \case
     let url = hs <> "/_matrix/client/r0/login"
     performXhrCallbackWithErrorJSON "POST" url loginRequest $ \case
       XhrResponseParse_Success r -> do
+        let uid = r ^. loginResponse_userId
+            uid' = Id $ printUserId uid
         void $ withConnection c $ \conn -> runBeamSqlite conn $ do
           -- TODO: Add upsert support for beam-sqlite.
           old <- runSelectReturningOne $ lookup_ (dbLogin db) $
-            EntityKey $ Id $ UserId u
+            EntityKey uid'
           runUpdate $ update (dbLogin db)
             (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
             (\_ -> val_ True)
-          let new = Entity (Id $ UserId u) $ Login
+          let new = Entity uid' $ Login
                 { _login_homeServer = hs
                 , _login_accessToken = Just $ r ^. loginResponse_accessToken
                 , _login_deviceId = Just $ r ^. loginResponse_deviceId
