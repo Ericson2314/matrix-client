@@ -13,6 +13,7 @@ library
                , obelisk-beam
                , obelisk-frontend
                , obelisk-route
+               , monad-logger
                , reflex-dom
                , obelisk-generated-static
                , semantic-reflex

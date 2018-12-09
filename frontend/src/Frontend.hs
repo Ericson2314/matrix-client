@@ -6,6 +6,7 @@ import Data.Text (Text)
 import Obelisk.Frontend
 import Obelisk.Route
 import Obelisk.Route.Frontend
+import Obelisk.Route.Frontend.Logger.Orphans ()
 import Reflex.Dom.SemanticUI
 
 import Common.Route

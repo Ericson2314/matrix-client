@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Frontend.Request.Local where
 
@@ -7,6 +8,7 @@ import           Control.Monad
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Exception
+import           Control.Monad.Logger
 import           Control.Monad.Primitive
 import           Control.Monad.Ref
 import           Control.Monad.Trans.Class
@@ -45,6 +47,7 @@ data XhrResponseParse response error
 
 data LocalFrontendRequestContext t = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
+  , _localFrontendRequestContext_logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
 
 newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
@@ -95,6 +98,14 @@ instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
   type PrimState (LocalFrontendRequestT t m) = PrimState m
   primitive = lift . primitive
 
+instance MonadIO m => MonadLogger (LocalFrontendRequestT t m) where
+  monadLoggerLog a b c msg = LocalFrontendRequestT $ do
+    logger <- asks _localFrontendRequestContext_logger
+    liftIO $ logger a b c $ toLogStr msg
+
+instance MonadIO m => MonadLoggerIO (LocalFrontendRequestT t m) where
+  askLoggerIO = LocalFrontendRequestT $ asks _localFrontendRequestContext_logger
+
 -- TODO use `coerce`
 instance PerformEvent t m => PerformEvent t (LocalFrontendRequestT t m) where
   type Performable (LocalFrontendRequestT t m) = LocalFrontendRequestT t (Performable m)
@@ -114,24 +125,25 @@ instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => Monad
         handleLocalFrontendRequest (const blank) ctx r
 
 handleLocalFrontendRequest
-  :: JSConstraints js m
-  => (a -> IO ())
+  :: (JSConstraints js m)
+  => (a -> LoggingT IO ())
   -> LocalFrontendRequestContext t
   -> FrontendRequest a
   -> m ()
 handleLocalFrontendRequest k c = \case
   FrontendRequest_Login hs u pw -> do
+    let logger = _localFrontendRequestContext_logger c
     let loginRequest = LoginRequest
           (UserIdentifier_User u)
           (Login_Password pw)
           Nothing
           Nothing
     let url = hs <> "/_matrix/client/r0/login"
-    performXhrCallbackWithErrorJSON "POST" url loginRequest $ \case
+    performXhrCallbackWithErrorJSON "POST" url loginRequest $ flip runLoggingT logger . \case
       XhrResponseParse_Success r -> do
         let uid = r ^. loginResponse_userId
             uid' = Id $ printUserId uid
-        void $ withConnection c $ \conn -> runBeamSqlite conn $ do
+        liftIO $ void $ withConnection c $ \conn -> runBeamSqlite conn $ do
           -- TODO: Add upsert support for beam-sqlite.
           old <- runSelectReturningOne $ lookup_ (dbLogin db) $
             EntityKey uid'
@@ -147,6 +159,7 @@ handleLocalFrontendRequest k c = \case
           case old of
             Nothing -> runInsert $ insert (dbLogin db) $ insertValues [new]
             Just _ -> runUpdate $ save (dbLogin db) new
+        $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
         k $ Right ()
       XhrResponseParse_Failure e -> k $ Left $ FrontendError_ResponseError e
       r -> k $ Left $ FrontendError_Other $ T.pack $ show r
@@ -203,6 +216,12 @@ runLocalFrontendRequestT
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
   -- TODO: Find some way to close the DB connection when the app is exited.
   conn <- prerender (return Nothing) $ liftIO $ fmap Just $ newMVar =<< initDb
+  -- TODO monad-logger should give us the underlying implementatino whether or
+  -- not we in a `MonadIO`.
+  logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+    <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
+      (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
   runReaderT m $ LocalFrontendRequestContext
     { _localFrontendRequestContext_connection = conn
+    , _localFrontendRequestContext_logger = logger
     }
