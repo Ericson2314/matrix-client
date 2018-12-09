@@ -81,7 +81,7 @@ makeLenses ''UserId
 
 
 printUserId :: UserId -> Text
-printUserId (UserId u d) = u <> printServerName d
+printUserId (UserId u d) = "@" <> u <> ":" <> printServerName d
 
 parseUserId :: Parser UserId
 parseUserId = do
