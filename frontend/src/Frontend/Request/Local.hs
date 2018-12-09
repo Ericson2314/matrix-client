@@ -63,7 +63,6 @@ newtype LocalFrontendRequestT t m a = LocalFrontendRequestT
     , TriggerEvent t
     , MonadReflexCreateTrigger t
     , PostBuild t
-    , PerformEvent t
     , NotReady t
     , DomBuilder t
     , HasDocument
@@ -96,13 +95,23 @@ instance PrimMonad m => PrimMonad (LocalFrontendRequestT t m) where
   type PrimState (LocalFrontendRequestT t m) = PrimState m
   primitive = lift . primitive
 
+-- TODO use `coerce`
+instance PerformEvent t m => PerformEvent t (LocalFrontendRequestT t m) where
+  type Performable (LocalFrontendRequestT t m) = LocalFrontendRequestT t (Performable m)
+  performEvent_ = LocalFrontendRequestT . performEvent_ . fmap unLocalFrontendRequestT
+  performEvent = LocalFrontendRequestT . performEvent . fmap unLocalFrontendRequestT
+
 instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => MonadFrontendRequest t (LocalFrontendRequestT t m) where
-  performFrontendRequest req = performEventAsync $ ffor req $ \r k -> ReaderT $ \c ->
-    prerenderPerformable @js @m blank $
-      handleLocalFrontendRequest k c r
-  performFrontendRequest_ req = performEvent_ $ ffor req $ \r -> ReaderT $ \c ->
-    prerenderPerformable @js @m blank $
-      handleLocalFrontendRequest (const blank) c r
+  performFrontendRequest req = do
+    ctx <- LocalFrontendRequestT ask
+    performEventAsync $ ffor req $ \r k ->
+      prerenderPerformable @js @(LocalFrontendRequestT t m) blank $
+        handleLocalFrontendRequest (liftIO . k) ctx r
+  performFrontendRequest_ req = do
+    ctx <- LocalFrontendRequestT ask
+    performEvent_ $ ffor req $ \r ->
+      prerenderPerformable @js @(LocalFrontendRequestT t m) blank $
+        handleLocalFrontendRequest (const blank) ctx r
 
 handleLocalFrontendRequest
   :: JSConstraints js m
