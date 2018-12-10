@@ -1,0 +1,7 @@
+{
+  "url": "ssh://git@gitlab.com/obsidian.systems/vessel.git",
+  "rev": "b427da8e6e0c523b17862788b0d41241934d13d5",
+  "sha256": "069kvc8vhq0fpw3r7r5xjvaznlwjwjjg1vlrxm83dgb8mf4ahgyf",
+  "fetchSubmodules": false,
+  "branch": "kmicklas-temp"
+}

@@ -30,6 +30,7 @@ library
     ConstraintKinds
     DataKinds
     DeriveAnyClass
+    DeriveFunctor
     DeriveGeneric
     DerivingStrategies
     EmptyCase
@@ -43,6 +44,7 @@ library
     LambdaCase
     MultiParamTypeClasses
     OverloadedStrings
+    PolyKinds
     ScopedTypeVariables
     StandaloneDeriving
     TypeApplications
