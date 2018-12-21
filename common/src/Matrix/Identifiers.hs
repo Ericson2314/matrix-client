@@ -12,6 +12,7 @@ import           Data.List.NonEmpty (NonEmpty(..))
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Word
+import           GHC.Generics
 import           Net.IPv4
 import           Net.IPv6
 import           Text.Read (readMaybe)
@@ -20,7 +21,7 @@ data Host
   = Host_Domain (NonEmpty Text)
   | Host_IPv4 IPv4
   | Host_IPv6 IPv6
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 
 printHost :: Host -> Text
 printHost = \case
@@ -39,11 +40,13 @@ parseHost = ipv4address <|> (char '[' *> ipv6address <* char ']' ) <|> dnsName
       bs <- some (char '.' *> bit)
       pure $ b :| bs
 
+--------------------------------------------------------------------------------
+
 data ServerName = ServerName
   { _serverName_host :: Host
   , _serverName_port :: Maybe Word16
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 makeLenses ''ServerName
 
 printServerName :: ServerName -> Text
@@ -72,11 +75,13 @@ instance FromJSON ServerName where
 instance FromJSONKey ServerName where
   fromJSONKey = FromJSONKeyTextParser $ runParserJson parseServerName
 
+--------------------------------------------------------------------------------
+
 data UserId = UserId
   { _userId_username :: Text -- good enough for now
   , _userId_domain :: ServerName
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord, Show, Generic)
 makeLenses ''UserId
 
 
