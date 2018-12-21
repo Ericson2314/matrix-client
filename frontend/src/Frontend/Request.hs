@@ -10,6 +10,9 @@ import Obelisk.Route.Frontend
 import Reflex
 import Reflex.Dom.Core (XhrException)
 
+import Matrix.Client.Types as M hiding (Event)
+import Matrix.Identifiers as M
+
 -- | Instantiate with the possible errors of each call
 data FrontendError e
   = FrontendError_ResponseError e
@@ -25,6 +28,13 @@ data FrontendRequest :: Type -> Type where
     :: Text -- ^ home server
     -> Text -- ^ user name
     -> Text -- ^ password
+    -> FrontendRequest (Either (FrontendError Value) AccessToken)
+    -- ^ TODO be better than `Value` here
+    -- ^ TODO change 'AccessToken' back to '()' once views are implemented.
+  FrontendRequest_JoinRoom
+    :: Text -- ^ home server
+    -> AccessToken
+    -> RoomId -- ^ The room
     -> FrontendRequest (Either (FrontendError Value) ()) -- TODO be better than `Value` here
 
 class MonadFrontendRequest t m | m -> t where

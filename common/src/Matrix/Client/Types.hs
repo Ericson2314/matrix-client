@@ -56,25 +56,35 @@ instance ToJSON MatrixUri where
 --------------------------------------------------------------------------------
 
 -- | The Matrix interface for the client to talk to the surver.
-data ClientServer httpType route request respPerCode where
+data ClientServer httpType route needsAuth request respPerCode where
   ClientServer_Login
     :: ClientServer
        "POST"
        ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "login"]
+       'False
        LoginRequest
        LoginRespKey
   ClientServer_Sync
     :: ClientServer
        "GET"
        ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "sync"]
+       'True
        SyncRequest
        SyncRespKey
   ClientServer_PutFilter
     :: ClientServer
        "POST"
        ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "user", 'Right UserId, 'Left "filter"]
+       'True
        Ae.Value
        PutFilterRespKey
+  ClientServer_Join
+    :: ClientServer
+       "PUT"
+       ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "rooms", 'Right RoomId, 'Left "join"]
+       'True
+       JoinRequest
+       JoinRespKey
 
 --------------------------------------------------------------------------------
 
@@ -150,7 +160,7 @@ newtype DeviceId = DeviceId { unDeviceId :: Text }
 
 data LoginResponse = LoginResponse
   { _loginResponse_userId :: UserId
-  , _loginResponse_accessToken :: Text
+  , _loginResponse_accessToken :: AccessToken
   , _loginResponse_homeServer :: Text
   , _loginResponse_deviceId :: DeviceId
   } deriving (Eq, Ord, Show, Generic)
@@ -466,9 +476,46 @@ instance FromJSON Filter where
 instance ToJSON Filter where
   toJSON = genericToJSON aesonOptions
 
+--------------------------------------------------------------------------------
+
+data JoinRespKey :: Type -> Type where
+  JoinRespKey_200 :: JoinRespKey JoinResponse
+  JoinRespKey_403 :: JoinRespKey Ae.Value
+  JoinRespKey_429 :: JoinRespKey Ae.Value
+
+instance GetStatusKey JoinRespKey where
+  statusMap = Map.fromList
+    [ (200, This JoinRespKey_200)
+    , (403, This JoinRespKey_403)
+    , (429, This JoinRespKey_429)
+    ]
+
+data JoinRequest = JoinRequest
+  { -- _joinResponse_thirdPartyId :: ThirdPartyId
+  }
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON JoinRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON JoinRequest where
+  toJSON = genericToJSON aesonOptions
+
+data JoinResponse = JoinResponse
+  { _joinResponse_roomId :: RoomId
+  }
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON JoinResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON JoinResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
 join <$> traverse deriveArgDict
   [ ''LoginRespKey
   , ''SyncRespKey
+  , ''JoinRespKey
   ]
 
 join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))

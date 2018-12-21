@@ -149,7 +149,6 @@ handleLocalFrontendRequest
   -> m ()
 handleLocalFrontendRequest k c = \case
   FrontendRequest_Login hs u pw -> do
-    let logger = _localFrontendRequestContext_logger c
     let loginRequest = LoginRequest
           (UserIdentifier_User u)
           (Login_Password pw)
@@ -182,6 +181,13 @@ handleLocalFrontendRequest k c = \case
         -- TODO: Add to V_Logins as well.
         lift $ patchQueryResult c $ singletonV V_Login $ MapV $
           MM.singleton uid' $ Identity $ First $ Just newValue
+        pure $ Right $ r ^. loginResponse_accessToken
+  FrontendRequest_JoinRoom hs token room -> do
+    performRoutedRequest ClientServer_Join hs token JoinRequest room $ cvtE $ \sentinal r -> case sentinal of
+      JoinRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
+      JoinRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
+      JoinRespKey_200 -> do
+        $(logInfo) $ "Sucessfully join room: " <> printRoomId room
         pure $ Right ()
   where
     logger = _localFrontendRequestContext_logger c

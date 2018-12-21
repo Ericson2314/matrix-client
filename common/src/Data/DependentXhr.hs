@@ -12,14 +12,16 @@ import           Data.ByteString.Lazy (toStrict, fromStrict)
 --import           Data.Constraint (Dict (..))
 import           Data.Constraint.Extras
 import           Data.Kind
+import qualified Data.Map as Map
 import           Data.Map (Map)
-import qualified Data.Map as M
+import           Data.Maybe (fromMaybe)
 import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import           Data.Word
+import           GHC.Generics
 import           GHC.TypeLits
 import           Language.Javascript.JSaddle.Types
 import           Reflex.Dom.Core
@@ -49,6 +51,10 @@ type XhrResponseParse respPerCode =
          (Either ErrorXhrInvalidStatus
                  (XhrSomeStatus respPerCode))
 
+newtype AccessToken = AccessToken { getAccessToken :: Text}
+  deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
+  deriving (Generic)
+
 performRequestCallbackWithError
   :: forall m a. (MonadJSM m, HasJSContext m, IsXhrPayload a)
   => (Either XhrException XhrResponse -> IO ())
@@ -62,16 +68,19 @@ performXhrCallbackWithErrorJSON
   .  (JSConstraints js m, ToJSON request, GetStatusKey respPerCode, Has FromJSON respPerCode)
   => Text
   -> Text
+  -> Maybe AccessToken
   -> request
   -> (XhrResponseParse respPerCode -> IO ())
   -> m ()
-performXhrCallbackWithErrorJSON method url request k = do
+performXhrCallbackWithErrorJSON method url auth request k = do
   let
     body = decodeUtf8 $ toStrict $ Data.Aeson.encode request
-    req = XhrRequest method url $ def & xhrRequestConfig_sendData .~ body
+    req = XhrRequest method url $ def
+      & xhrRequestConfig_sendData .~ body
+      & xhrRequestConfig_headers .~ (fromMaybe mempty $ Map.singleton "Authorization" . getAccessToken <$> auth)
   flip performRequestCallbackWithError req $ k . \case
     Left e -> Left e
-    Right r -> Right $ case M.lookup (fromIntegral $ _xhrResponse_status r) statusMap of
+    Right r -> Right $ case Map.lookup (fromIntegral $ _xhrResponse_status r) statusMap of
       Nothing -> Left ErrorXhrInvalidStatus
       Just (This statusKey) -> Right $ XhrThisStatus statusKey $
         case _xhrResponse_responseText r of
@@ -90,36 +99,55 @@ class ToRoutePiece t where
 
 class KnownRoute (route :: RoutePath) where
   type RouteFunctor route x :: Type
-  _fmaplike :: (x -> y) -> RouteFunctor route x -> RouteFunctor route y
+  _knownRoute_fmaplike :: (x -> y) -> RouteFunctor route x -> RouteFunctor route y
   reifyRoute :: RouteFunctor route [Text]
 
 instance KnownRoute '[] where
   type RouteFunctor '[] x = x
-  _fmaplike = id
+  _knownRoute_fmaplike = id
   reifyRoute = []
 
 instance (KnownRoute r, KnownSymbol s) => KnownRoute ('Left s : r) where
   type RouteFunctor ('Left s : r) x = RouteFunctor r x
-  _fmaplike = _fmaplike @r
-  reifyRoute = _fmaplike @r (reifyText @s :) (reifyRoute @r)
+  _knownRoute_fmaplike = _knownRoute_fmaplike @r
+  reifyRoute = _knownRoute_fmaplike @r (reifyText @s :) (reifyRoute @r)
 
 instance (KnownRoute r, ToRoutePiece t) => KnownRoute ('Right t : r) where
   type RouteFunctor ('Right t : r) x = t -> RouteFunctor r x
-  _fmaplike = fmap . _fmaplike @r
-  reifyRoute t = _fmaplike @r (toRoute t :) (reifyRoute @r)
+  _knownRoute_fmaplike = fmap . _knownRoute_fmaplike @r
+  reifyRoute t = _knownRoute_fmaplike @r (toRoute t :) (reifyRoute @r)
+
+class KnownNeedsAuth (needsAuth :: Bool) where
+  type AuthFunctor needsAuth x :: Type
+  _knownNeedsAuth_fmaplike :: (x -> y) -> AuthFunctor needsAuth x -> AuthFunctor needsAuth y
+  makeToken :: AuthFunctor needsAuth (Maybe AccessToken)
+
+instance KnownNeedsAuth 'False where
+  type AuthFunctor 'False x = x
+  _knownNeedsAuth_fmaplike = id
+  makeToken = Nothing
+
+instance KnownNeedsAuth 'True where
+  type AuthFunctor 'True x = AccessToken -> x
+  _knownNeedsAuth_fmaplike = fmap
+  makeToken = Just
 
 performRoutedRequest
-  :: forall routeRelation js m ty (route :: RoutePath) request respPerCode
-  .  ( JSConstraints js m, KnownSymbol ty, KnownRoute route
+  :: forall routeRelation js m ty (route :: RoutePath) (needsAuth :: Bool) request respPerCode
+  .  ( JSConstraints js m, KnownSymbol ty, KnownRoute route, KnownNeedsAuth needsAuth
      , ToJSON request, GetStatusKey respPerCode, Has FromJSON respPerCode)
-  => routeRelation ty route request respPerCode
+  => routeRelation ty route needsAuth request respPerCode
   -> Text -- ^ Home Server base URL
-  -> request
-  -> RouteFunctor route ((XhrResponseParse respPerCode -> IO ()) -> m ())
-performRoutedRequest _c hs r = _fmaplike @route
-  (\(routeList :: [Text]) k -> performXhrCallbackWithErrorJSON
-    @js @m @request @respPerCode (reifyText @ty) (T.intercalate "/" $ hs : routeList) r k)
-  (reifyRoute @route)
+  -> (AuthFunctor needsAuth
+      (request
+       -> RouteFunctor route ((XhrResponseParse respPerCode -> IO ())
+                              -> m ())))
+performRoutedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
+  (\mAuth r -> _knownRoute_fmaplike @route
+    (\(routeList :: [Text]) k -> performXhrCallbackWithErrorJSON
+      @js @m @request @respPerCode (reifyText @ty) (T.intercalate "/" $ hs : routeList) mAuth r k)
+    (reifyRoute @route))
+  (makeToken @needsAuth)
 
 -- type family Lefts (s :: [Either a b]) :: [a] where
 --   Lefts '[] = '[]

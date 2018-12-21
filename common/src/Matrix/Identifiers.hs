@@ -11,6 +11,7 @@ import           Data.Char
 import           Data.List.NonEmpty (NonEmpty(..))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Data.DependentXhr (ToRoutePiece (..))
 import           Data.Word
 import           GHC.Generics
 import           Net.IPv4
@@ -40,6 +41,9 @@ parseHost = ipv4address <|> (char '[' *> ipv6address <* char ']' ) <|> dnsName
       bs <- some (char '.' *> bit)
       pure $ b :| bs
 
+instance ToRoutePiece Host where
+  toRoute = toRoute
+
 --------------------------------------------------------------------------------
 
 data ServerName = ServerName
@@ -65,6 +69,9 @@ runParserJson :: Parser a -> Text -> Aeson.Parser a
 runParserJson p t = case parseOnly p t of
   Left e -> fail e
   Right sn -> pure sn
+
+instance ToRoutePiece ServerName where
+  toRoute = printServerName
 
 instance ToJSON ServerName where
   toJSON = toJSON . printServerName
@@ -108,11 +115,46 @@ parseUserId = do
   sn <- parseServerName
   pure $ UserId u sn
 
+instance ToRoutePiece UserId where
+  toRoute = printUserId
+
 instance ToJSON UserId where
   toJSON sn = toJSON $ printUserId sn
 instance ToJSONKey UserId where
   toJSONKey = toJSONKeyText printUserId
 instance FromJSON UserId where
-  parseJSON = withText "server name" $ runParserJson parseUserId
+  parseJSON = withText "user ID" $ runParserJson parseUserId
 instance FromJSONKey UserId where
   fromJSONKey = FromJSONKeyTextParser $ runParserJson parseUserId
+
+--------------------------------------------------------------------------------
+
+data RoomId = RoomId
+  { _roomId_opaque :: Text
+  , _roomId_domain :: ServerName
+  }
+  deriving (Eq, Ord, Show, Generic)
+makeLenses ''RoomId
+
+printRoomId :: RoomId -> Text
+printRoomId (RoomId u d) = "@" <> u <> ":" <> printServerName d
+
+parseRoomId :: Parser RoomId
+parseRoomId = do
+  _ <- char '!'
+  u <- takeWhile1 (/= ':')
+  _ <- char ':'
+  sn <- parseServerName
+  pure $ RoomId u sn
+
+instance ToRoutePiece RoomId where
+  toRoute = printRoomId
+
+instance ToJSON RoomId where
+  toJSON sn = toJSON $ printRoomId sn
+instance ToJSONKey RoomId where
+  toJSONKey = toJSONKeyText printRoomId
+instance FromJSON RoomId where
+  parseJSON = withText "room ID" $ runParserJson parseRoomId
+instance FromJSONKey RoomId where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseRoomId
