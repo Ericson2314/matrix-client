@@ -1,5 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
 module Data.DependentXhr where
 
@@ -8,6 +9,7 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Utils
 import           Data.ByteString.Lazy (toStrict, fromStrict)
+--import           Data.Constraint (Dict (..))
 import           Data.Constraint.Extras
 import           Data.Kind
 import           Data.Proxy
@@ -24,14 +26,19 @@ import           Reflex.Dom.Prerender.Performable
 data ErrorXhrNoBody = ErrorXhrNoBody
   deriving (Eq, Ord, Show)
 
+-- Indicates an unexpected response code. In idiomatic usage, this means one
+-- cannot decode the body automatically because it is unclear what type to
+-- decode to.
 data ErrorXhrInvalidStatus = ErrorXhrInvalidStatus
   deriving (Eq, Ord, Show)
 
+-- | Maps a HTTP response code the type to which the the response should
+-- decode to.
 class GetStatusKey (respPerCode :: Type -> Type) where
   lookupStatus :: Word16 -> Either ErrorXhrInvalidStatus (Some respPerCode)
 
-data XhrSomeStatus (typePerCode :: Type -> Type)
-  = forall r. XhrThisStatus (typePerCode r)
+data XhrSomeStatus (respPerCode :: Type -> Type)
+  = forall r. XhrThisStatus (respPerCode r)
                             (Either ErrorXhrNoBody
                                     (Either ErrorBadJsonParse r))
 
@@ -71,17 +78,65 @@ performXhrCallbackWithErrorJSON method url request k = do
             Left jsonError -> Left $ ErrorBadJsonParse jsonError raw
             Right val -> Right val
 
+type RoutePath = [Either Symbol Type]
+
 reifyText :: forall (t :: Symbol). KnownSymbol t => Text
 reifyText = T.pack $ symbolVal $ Proxy @t
 
+class ToRoutePiece t where
+  toRoute :: t -> Text
+
+class KnownRoute (route :: RoutePath) where
+  type RouteFunctor route x :: Type
+  _fmaplike :: (x -> y) -> RouteFunctor route x -> RouteFunctor route y
+  reifyRoute :: RouteFunctor route [Text]
+
+instance KnownRoute '[] where
+  type RouteFunctor '[] x = x
+  _fmaplike = id
+  reifyRoute = []
+
+instance (KnownRoute r, KnownSymbol s) => KnownRoute ('Left s : r) where
+  type RouteFunctor ('Left s : r) x = RouteFunctor r x
+  _fmaplike = _fmaplike @r
+  reifyRoute = _fmaplike @r (reifyText @s :) (reifyRoute @r)
+
+instance (KnownRoute r, ToRoutePiece t) => KnownRoute ('Right t : r) where
+  type RouteFunctor ('Right t : r) x = t -> RouteFunctor r x
+  _fmaplike = fmap . _fmaplike @r
+  reifyRoute t = _fmaplike @r (toRoute t :) (reifyRoute @r)
+
 performRoutedRequest
-  :: forall routeRelation js m ty route request respPerCode
-  .  ( JSConstraints js m, KnownSymbol route, KnownSymbol ty
+  :: forall routeRelation js m ty (route :: RoutePath) request respPerCode
+  .  ( JSConstraints js m, KnownSymbol ty, KnownRoute route
      , ToJSON request, GetStatusKey respPerCode, Has FromJSON respPerCode)
   => routeRelation ty route request respPerCode
-  -> request
   -> Text -- ^ Home Server base URL
-  -> (XhrResponseParse respPerCode -> IO ())
-  -> m ()
-performRoutedRequest _c r hs k = performXhrCallbackWithErrorJSON
-  @js @m @request @respPerCode (reifyText @ty) (hs <> reifyText @route) r k
+  -> request
+  -> RouteFunctor route ((XhrResponseParse respPerCode -> IO ()) -> m ())
+performRoutedRequest _c hs r = _fmaplike @route
+  (\(routeList :: [Text]) k -> performXhrCallbackWithErrorJSON
+    @js @m @request @respPerCode (reifyText @ty) (T.intercalate "/" $ hs : routeList) r k)
+  (reifyRoute @route)
+
+-- type family Lefts (s :: [Either a b]) :: [a] where
+--   Lefts '[] = '[]
+--   Lefts ('Right _ : r) = Lefts r
+--   Lefts ('Left s : r) = s : Lefts r
+--
+-- type family Rights (s :: [Either a b]) :: [b] where
+--   Rights '[] = '[]
+--   Rights ('Left _ : r) = Rights r
+--   Rights ('Right s : r) = s : Rights r
+--
+-- type family ListHas (c :: x -> Constraint) (f :: [x]) :: Constraint where
+--   ListHas _ '[] = ()
+--   ListHas c (s : r) = (c s, ListHas c r)
+--
+-- _test
+--   :: forall (route :: RoutePath)
+--   .  ( ListHas KnownSymbol (Lefts route)
+--      , ListHas ToJSON (Rights route)
+--      )
+--   => Dict (KnownRoute route)
+-- _test = Dict

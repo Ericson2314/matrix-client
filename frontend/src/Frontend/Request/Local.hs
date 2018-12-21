@@ -1,3 +1,4 @@
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecursiveDo #-}
@@ -120,6 +121,25 @@ instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => Monad
       prerenderPerformable @js @(LocalFrontendRequestT t m) blank $
         handleLocalFrontendRequest (const blank) ctx r
 
+-- | Converts an 'XhrResponseParse' to a 'FrontendError'. All the failure cases
+-- are handled in the simplest way possible (pure functional boilerplate), while
+-- the success case is handled via the function parameter.
+convertErrors
+  :: Monad m
+  => (forall r. respPerCode r -> r -> m (Either (FrontendError e) b))
+  -> XhrResponseParse respPerCode
+  -> m (Either (FrontendError e) b)
+convertErrors handleSuccessful = \case
+  Left xhrException ->
+    pure $ Left $ FrontendError_Other $ Left xhrException
+  Right (Left innvalidStatus) ->
+    pure $ Left $ FrontendError_Other $ Right $ Left innvalidStatus
+  Right (Right (XhrThisStatus _ (Left eNoBody))) ->
+    pure $ Left $ FrontendError_Other $ Right $ Right $ Left eNoBody
+  Right (Right (XhrThisStatus _ (Right (Left eBadJson)))) ->
+    pure $ Left $ FrontendError_Other $ Right $ Right $ Right eBadJson
+  Right (Right (XhrThisStatus sentinal (Right (Right r)))) -> handleSuccessful sentinal r
+
 handleLocalFrontendRequest
   :: forall js m t a
   .  JSConstraints js m
@@ -135,42 +155,43 @@ handleLocalFrontendRequest k c = \case
           (Login_Password pw)
           Nothing
           Nothing
-    let url = hs <> "/_matrix/client/r0/login"
-    performXhrCallbackWithErrorJSON "POST" url loginRequest $ flip runLoggingT logger . \case
-      Left xhrException ->
-        k $ Left $ FrontendError_Other $ Left xhrException
-      Right (Left innvalidStatus) ->
-        k $ Left $ FrontendError_Other $ Right $ Left innvalidStatus
-      Right (Right (XhrThisStatus _ (Left eNoBody))) ->
-        k $ Left $ FrontendError_Other $ Right $ Right $ Left eNoBody
-      Right (Right (XhrThisStatus _ (Right (Left eBadJson)))) ->
-        k $ Left $ FrontendError_Other $ Right $ Right $ Right eBadJson
-      Right (Right (XhrThisStatus sentinal (Right (Right r)))) -> case sentinal of
-        LoginRespKey_Invalid -> k $ Left $ FrontendError_ResponseError r
-        LoginRespKey_Valid -> do
-          let uid = r ^. loginResponse_userId
-              uid' = Id $ printUserId uid
-              newValue = Login
-                { _login_homeServer = hs
-                , _login_accessToken = Just $ r ^. loginResponse_accessToken
-                , _login_deviceId = Just $ r ^. loginResponse_deviceId
-                , _login_isActive = True
-                }
-              newEntity = Entity uid' newValue
-          liftIO $ void $ withConnection c $ \conn -> runBeamSqlite conn $ do
-            -- TODO: Add upsert support for beam-sqlite.
-            old <- runSelectReturningOne $ lookup_ (dbLogin db) $ EntityKey uid'
-            runUpdate $ update (dbLogin db)
-              (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
-              (\_ -> val_ True)
-            case old of
-              Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
-              Just _ -> runUpdate $ save (dbLogin db) newEntity
-          $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
-          -- TODO: Add to V_Logins as well.
-          lift $ patchQueryResult c $ singletonV V_Login $ MapV $
-            MM.singleton uid' $ Identity $ First $ Just newValue
-          k $ Right ()
+    performRoutedRequest ClientServer_Login hs loginRequest $ cvtE $ \sentinal r -> case sentinal of
+      LoginRespKey_Invalid -> pure $ Left $ FrontendError_ResponseError r
+      LoginRespKey_Valid -> do
+        let uid = r ^. loginResponse_userId
+            uid' = Id $ printUserId uid
+            newValue = Login
+              { _login_homeServer = hs
+              , _login_accessToken = Just $ r ^. loginResponse_accessToken
+              , _login_deviceId = Just $ r ^. loginResponse_deviceId
+              , _login_isActive = True
+              }
+            newEntity = Entity uid' newValue
+        liftIO $ void $ withConnection c $ \conn -> runBeamSqlite conn $ do
+          -- TODO: Add upsert support for beam-sqlite.
+          old <- runSelectReturningOne $ lookup_ (dbLogin db) $ EntityKey uid'
+          runUpdate $ update (dbLogin db)
+            (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
+            (\_ -> val_ True)
+          case old of
+            Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
+            Just _ -> runUpdate $ save (dbLogin db) newEntity
+        $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
+        -- TODO: Add to V_Logins as well.
+        lift $ patchQueryResult c $ singletonV V_Login $ MapV $
+          MM.singleton uid' $ Identity $ First $ Just newValue
+        pure $ Right ()
+  where
+    logger = _localFrontendRequestContext_logger c
+    -- | Arbitrary combinator soup. 'convertErrors' does the bulk of the work; the
+    -- rest here is just whatever happens to be the common pattern for
+    -- `handleLocalFrontendRequest`.
+    cvtE
+      :: forall respPerCode e b.  a ~ Either (FrontendError e) b
+      => (forall r. respPerCode r -> r -> LoggingT IO (Either (FrontendError e) b))
+      -> XhrResponseParse respPerCode
+      -> IO ()
+    cvtE k' = flip runLoggingT logger . (k <=< convertErrors k')
 
 patchQueryResult :: LocalFrontendRequestContext t -> FrontendV Identity -> IO ()
 patchQueryResult c = _localFrontendRequestContext_updateQueryResult c

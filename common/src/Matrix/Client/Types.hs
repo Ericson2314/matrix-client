@@ -19,7 +19,11 @@ import Matrix.Identifiers
 -- | The Matrix interface for the client to talk to the surver.
 data ClientServer httpType route request respPerCode where
   ClientServer_Login
-    :: ClientServer "POST" "/_matrix/client/r0/login" LoginRequest LoginRespKey
+    :: ClientServer
+       "POST"
+       ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "login"]
+       LoginRequest
+       LoginRespKey
 
 data LoginRespKey :: Type -> Type where
   LoginRespKey_Valid :: LoginRespKey LoginResponse
