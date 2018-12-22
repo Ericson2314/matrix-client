@@ -156,8 +156,10 @@ handleLocalFrontendRequest k c = \case
           Nothing
           Nothing
     performRoutedRequest ClientServer_Login hs loginRequest $ cvtE $ \sentinal r -> case sentinal of
-      LoginRespKey_Invalid -> pure $ Left $ FrontendError_ResponseError r
-      LoginRespKey_Valid -> do
+      LoginRespKey_400 -> pure $ Left $ FrontendError_ResponseError r
+      LoginRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
+      LoginRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
+      LoginRespKey_200 -> do
         let uid = r ^. loginResponse_userId
             uid' = Id $ printUserId uid
             newValue = Login

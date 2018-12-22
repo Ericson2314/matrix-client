@@ -3,16 +3,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Matrix.Client.Types where
 
-import Control.Lens (makeLenses)
-import Control.Monad
-import Data.Aeson
-import Data.Aeson.Utils
-import Data.Constraint.Extras.TH
-import Data.DependentXhr
-import Data.Kind
-import Data.Some
-import Data.Text (Text)
-import GHC.Generics
+import           Control.Lens (makeLenses)
+import           Control.Monad
+import           Data.Aeson
+import           Data.Aeson.Utils
+import           Data.Constraint.Extras.TH
+import           Data.DependentXhr
+import           Data.Kind
+import qualified Data.Map as Map
+import           Data.Map (Map)
+import           Data.Some
+import           Data.Text (Text)
+import           GHC.Generics
 
 import Matrix.Identifiers
 
@@ -26,13 +28,18 @@ data ClientServer httpType route request respPerCode where
        LoginRespKey
 
 data LoginRespKey :: Type -> Type where
-  LoginRespKey_Valid :: LoginRespKey LoginResponse
-  LoginRespKey_Invalid :: LoginRespKey Data.Aeson.Value
+  LoginRespKey_200 :: LoginRespKey LoginResponse
+  LoginRespKey_400 :: LoginRespKey Data.Aeson.Value
+  LoginRespKey_403 :: LoginRespKey Data.Aeson.Value
+  LoginRespKey_429 :: LoginRespKey Data.Aeson.Value
 
 instance GetStatusKey LoginRespKey where
-  lookupStatus status
-    | status >= 200 && status < 400 = Right $ This LoginRespKey_Valid
-    | otherwise = Right $ This LoginRespKey_Invalid
+  statusMap = Map.fromList
+    [ (200, This LoginRespKey_200)
+    , (400, This LoginRespKey_400)
+    , (403, This LoginRespKey_403)
+    , (429, This LoginRespKey_429)
+    ]
 
 data LoginRequest = LoginRequest
   { _loginRequest_identifier :: UserIdentifier

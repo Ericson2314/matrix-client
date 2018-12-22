@@ -12,6 +12,8 @@ import           Data.ByteString.Lazy (toStrict, fromStrict)
 --import           Data.Constraint (Dict (..))
 import           Data.Constraint.Extras
 import           Data.Kind
+import           Data.Map (Map)
+import qualified Data.Map as M
 import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)
@@ -35,7 +37,7 @@ data ErrorXhrInvalidStatus = ErrorXhrInvalidStatus
 -- | Maps a HTTP response code the type to which the the response should
 -- decode to.
 class GetStatusKey (respPerCode :: Type -> Type) where
-  lookupStatus :: Word16 -> Either ErrorXhrInvalidStatus (Some respPerCode)
+  statusMap :: Map Word16 (Some respPerCode)
 
 data XhrSomeStatus (respPerCode :: Type -> Type)
   = forall r. XhrThisStatus (respPerCode r)
@@ -69,9 +71,9 @@ performXhrCallbackWithErrorJSON method url request k = do
     req = XhrRequest method url $ def & xhrRequestConfig_sendData .~ body
   flip performRequestCallbackWithError req $ k . \case
     Left e -> Left e
-    Right r -> Right $ case lookupStatus $ fromIntegral $ _xhrResponse_status r of
-      Left ErrorXhrInvalidStatus -> Left ErrorXhrInvalidStatus
-      Right (This statusKey) -> Right $ XhrThisStatus statusKey $
+    Right r -> Right $ case M.lookup (fromIntegral $ _xhrResponse_status r) statusMap of
+      Nothing -> Left ErrorXhrInvalidStatus
+      Just (This statusKey) -> Right $ XhrThisStatus statusKey $
         case _xhrResponse_responseText r of
           Nothing -> Left ErrorXhrNoBody
           Just raw -> Right $ case has @FromJSON statusKey $ eitherDecode $ fromStrict $ encodeUtf8 raw of
