@@ -77,28 +77,36 @@ instance FromJSONKey ServerName where
 
 --------------------------------------------------------------------------------
 
+newtype UserName = UserName { getUserName :: Text }
+  deriving (Eq, Ord, Show, Generic)
+
+printUserName :: UserName -> Text
+printUserName = getUserName
+
+parseUserName :: Parser UserName
+parseUserName = fmap UserName $ takeWhile1 $ \c -> isDigit c
+  || (ord c >= 0x61 && ord c <= 0x7A)
+  || elem c ['-', '.', '=', '_', '/']
+
+--------------------------------------------------------------------------------
+
 data UserId = UserId
-  { _userId_username :: Text -- good enough for now
+  { _userId_username :: UserName
   , _userId_domain :: ServerName
   }
   deriving (Eq, Ord, Show, Generic)
 makeLenses ''UserId
 
-
 printUserId :: UserId -> Text
-printUserId (UserId u d) = "@" <> u <> ":" <> printServerName d
+printUserId (UserId u d) = "@" <> printUserName u <> ":" <> printServerName d
 
 parseUserId :: Parser UserId
 parseUserId = do
   _ <- char '@'
-  u <- parseUser
+  u <- parseUserName
   _ <- char ':'
   sn <- parseServerName
   pure $ UserId u sn
-  where
-    parseUser = takeWhile1 $ \c -> isDigit c
-      || (ord c >= 0x61 && ord c <= 0x7A)
-      || elem c ['-', '.', '=', '_', '/']
 
 instance ToJSON UserId where
   toJSON sn = toJSON $ printUserId sn
