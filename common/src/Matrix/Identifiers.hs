@@ -95,6 +95,18 @@ parseUserName = fmap UserName $ takeWhile1 $ \c -> isDigit c
   || (ord c >= 0x61 && ord c <= 0x7A)
   || elem c ['-', '.', '=', '_', '/']
 
+instance ToRoutePiece UserName where
+  toRoute = printUserName
+
+instance ToJSON UserName where
+  toJSON sn = toJSON $ printUserName sn
+instance ToJSONKey UserName where
+  toJSONKey = toJSONKeyText printUserName
+instance FromJSON UserName where
+  parseJSON = withText "user ID" $ runParserJson parseUserName
+instance FromJSONKey UserName where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseUserName
+
 --------------------------------------------------------------------------------
 
 data UserId = UserId

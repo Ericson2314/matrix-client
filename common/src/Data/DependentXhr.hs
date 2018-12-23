@@ -132,8 +132,16 @@ instance KnownNeedsAuth 'True where
   _knownNeedsAuth_fmaplike = fmap
   makeToken = Just
 
+type Route
+  =  Symbol
+  -> RoutePath
+  -> Bool
+  -> Type
+  -> (Type -> Type)
+  -> Type
+
 performRoutedRequest
-  :: forall routeRelation js m ty (route :: RoutePath) (needsAuth :: Bool) request respPerCode
+  :: forall (routeRelation :: Route) js m ty (route :: RoutePath) (needsAuth :: Bool) request respPerCode
   .  ( JSConstraints js m, KnownSymbol ty, KnownRoute route, KnownNeedsAuth needsAuth
      , ToJSON request, GetStatusKey respPerCode, Has FromJSON respPerCode)
   => routeRelation ty route needsAuth request respPerCode

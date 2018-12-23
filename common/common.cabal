@@ -21,6 +21,8 @@ library
     Common.Route
     Data.Aeson.Utils
     Matrix.Client.Types
+    Matrix.Client.Types.Auth.Login
+    Matrix.Client.Types.Auth.Account
     Matrix.Identifiers
 
   other-modules:

@@ -1,7 +1,12 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Matrix.Client.Types where
+{-# LANGUAGE TypeInType #-}
+module Matrix.Client.Types
+  ( module Matrix.Client.Types
+  , module Matrix.Client.Types.Auth.Login
+  , module Matrix.Client.Types.Auth.Account
+  ) where
 
 import           Control.Lens hiding ((.=))
 import           Control.Applicative (liftA2)
@@ -25,18 +30,9 @@ import           Text.Megaparsec (Parsec, parseMaybe)
 import           Text.URI
 
 import           Matrix.Identifiers
-
---------------------------------------------------------------------------------
-
-aesonOptions :: Ae.Options
-aesonOptions = defaultOptions { Ae.fieldLabelModifier = unCamelPrefixedField }
-
--- | Strips a field name of its type name and separating underscore (optionally
--- preceeded by an initial underscore as well) and converts CamelCase to
--- lowercase_with_underscores.
-unCamelPrefixedField :: String -> String
-unCamelPrefixedField =
-  camelTo2 '_' . tail . dropWhile (/= '_') . dropWhile (== '_')
+import           Matrix.Client.Types.Common
+import           Matrix.Client.Types.Auth.Login
+import           Matrix.Client.Types.Auth.Account
 
 --------------------------------------------------------------------------------
 
@@ -55,120 +51,47 @@ instance ToJSON MatrixUri where
 
 --------------------------------------------------------------------------------
 
+type Prefix r = 'Left "_matrix" ': Left "client" ': Left "r0" ': r
+
 -- | The Matrix interface for the client to talk to the surver.
-data ClientServer httpType route needsAuth request respPerCode where
-  ClientServer_Login
-    :: ClientServer
-       "POST"
-       ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "login"]
-       'False
-       LoginRequest
-       LoginRespKey
-  ClientServer_Sync
-    :: ClientServer
+data ClientServerRoute :: Route where
+  ClientServerRoute_Login
+    :: LoginRoute httpType route needsAuth request respPerCode
+    -> ClientServerRoute
+       httpType
+       (Prefix route)
+       needsAuth
+       request
+       respPerCode
+  ClientServerRoute_Account
+    :: AccountRoute httpType route needsAuth request respPerCode
+    -> ClientServerRoute
+       httpType
+       (Prefix route)
+       needsAuth
+       request
+       respPerCode
+  ClientServerRoute_Sync
+    :: ClientServerRoute
        "GET"
        ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "sync"]
        'True
        SyncRequest
        SyncRespKey
-  ClientServer_PutFilter
-    :: ClientServer
+  ClientServerRoute_PutFilter
+    :: ClientServerRoute
        "POST"
        ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "user", 'Right UserId, 'Left "filter"]
        'True
        Ae.Value
        PutFilterRespKey
-  ClientServer_Join
-    :: ClientServer
+  ClientServerRoute_Join
+    :: ClientServerRoute
        "PUT"
        ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "rooms", 'Right RoomId, 'Left "join"]
        'True
        JoinRequest
        JoinRespKey
-
---------------------------------------------------------------------------------
-
-data LoginRespKey :: Type -> Type where
-  LoginRespKey_200 :: LoginRespKey LoginResponse
-  LoginRespKey_400 :: LoginRespKey Data.Aeson.Value
-  LoginRespKey_403 :: LoginRespKey Data.Aeson.Value
-  LoginRespKey_429 :: LoginRespKey Data.Aeson.Value
-
-instance GetStatusKey LoginRespKey where
-  statusMap = Map.fromList
-    [ (200, This LoginRespKey_200)
-    , (400, This LoginRespKey_400)
-    , (403, This LoginRespKey_403)
-    , (429, This LoginRespKey_429)
-    ]
-
-data LoginRequest = LoginRequest
-  { _loginRequest_identifier :: UserIdentifier
-  , _loginRequest_login :: Login
-  , _loginRequest_deviceId :: Maybe DeviceId
-  , _loginRequest_initialDeviceDisplayName :: Maybe Text
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON LoginRequest where
-  parseJSON = withObject "Login Request" $ \v -> LoginRequest
-    <$> v .: "identifier"
-    <*> parseLogin v
-    <*> v .:? "device_id"
-    <*> v .:? "initial_device_display_name"
-   where
-    parseLogin v = (v .: "type") >>= \case
-      Ae.String "m.login.password" -> Login_Password <$> v .: "password"
-      _ -> mzero
-
-instance ToJSON LoginRequest where
-  toJSON (LoginRequest uid login mdid mdn) = object $ mconcat
-    [ pure $ "identifier" .= uid
-    , case login of
-        Login_Password pw ->
-          [ "type" .= Ae.String "m.login.password"
-          , "password" .= pw
-          ]
-    , "device_id" .=? mdid
-    , "initial_device_display_name" .=? mdn
-    ]
-
-data UserIdentifier
-  = UserIdentifier_User Text
-  -- TODO: Add other User Identifier types
-  deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON UserIdentifier where
-  parseJSON = withObject "User Identifier" $ \v -> (v .: "type") >>= \case
-    Ae.String "m.id.user" -> UserIdentifier_User <$> v .: "user"
-    _ -> mzero
-
-instance ToJSON UserIdentifier where
-  toJSON = \case
-    UserIdentifier_User uid -> object
-      [ "type" .= Ae.String "m.id.user"
-      , "user" .= Ae.String uid
-      ]
-
-data Login
-  = Login_Password Text
-  -- TODO: Add token login
-  deriving (Eq, Ord, Show, Generic)
-
-newtype DeviceId = DeviceId { unDeviceId :: Text }
-  deriving (Eq, Ord, Show, Generic)
-  deriving newtype (FromJSON, ToJSON)
-
-data LoginResponse = LoginResponse
-  { _loginResponse_userId :: UserId
-  , _loginResponse_accessToken :: AccessToken
-  , _loginResponse_homeServer :: Text
-  , _loginResponse_deviceId :: DeviceId
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON LoginResponse where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON LoginResponse where
-  toJSON = genericToJSON aesonOptions
 
 --------------------------------------------------------------------------------
 
