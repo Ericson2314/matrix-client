@@ -26,6 +26,19 @@ import           Text.URI
 
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
+import           Matrix.Client.Types.Auth.Account.ThirdParty
+
+--------------------------------------------------------------------------------
+
+data AuthenticationData = AuthenticationData
+  { _authenticationData_type :: Text
+  , _authenticationData_session :: Maybe Text
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON AuthenticationData where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON AuthenticationData where
+  toJSON = genericToJSON aesonOptions
 
 --------------------------------------------------------------------------------
 
@@ -65,6 +78,14 @@ data AccountRoute httpType route needsAuth request respPerCode where
        'False
        AvailableRequest
        AvailableRespKey
+  AccountRoute_Account
+    :: Account3PIdRoute httpType route needsAuth request respPerCode
+    -> AccountRoute
+       httpType
+       ('Left "account" ': 'Left "3pid" ': route)
+       needsAuth
+       request
+       respPerCode
 
 --------------------------------------------------------------------------------
 
@@ -75,7 +96,7 @@ data RegisterRespKey :: Type -> Type where
 
 
 data RegisterRequest = RegisterRequest
-  { _registerRequest_auth :: AuthenticationData
+  { _registerRequest_auth :: Maybe AuthenticationData
   , _registerRequest_bindEmail :: Bool
   , _registerRequest_username :: UserName
   , _registerRequest_password :: Text
@@ -89,15 +110,6 @@ instance FromJSON RegisterRequest where
 instance ToJSON RegisterRequest where
   toJSON = genericToJSON aesonOptions
 
--- | Should be empty record in most cases
-data AuthenticationData = AuthenticationData
-  deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON AuthenticationData where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON AuthenticationData where
-  toJSON = genericToJSON aesonOptions
-
 data RegisterResponse = RegisterResponse
   { _registerResponse_userId :: UserId
   , _registerResponse_accessToken :: AccessToken
@@ -107,64 +119,6 @@ data RegisterResponse = RegisterResponse
 instance FromJSON RegisterResponse where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON RegisterResponse where
-  toJSON = genericToJSON aesonOptions
-
---------------------------------------------------------------------------------
-
-data EmailRequestTokenRespKey :: Type -> Type where
-  EmailRequestTokenRespKey_200 :: EmailRequestTokenRespKey EmailRequestTokenResponse
-  EmailRequestTokenRespKey_403 :: EmailRequestTokenRespKey Data.Aeson.Value
-
-data EmailRequestTokenRequest = EmailRequestTokenRequest
-  { _emailRequestTokenRequest_clientSecret :: Text -- TODO there is a regex
-  , _emailRequestTokenRequest_email :: Text -- TODO better type
-  , _emailRequestTokenRequest_sendAttempt :: Word32 -- TODO width
-  , _emailRequestTokenRequest_nextLink :: Maybe MatrixUri
-  , _emailRequestTokenRequest_idServer :: ServerName
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON EmailRequestTokenRequest where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON EmailRequestTokenRequest where
-  toJSON = genericToJSON aesonOptions
-
-data EmailRequestTokenResponse = EmailRequestTokenResponse
-  { _emailRequestTokenResponse_sid :: Text -- TODO regex and max len
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON EmailRequestTokenResponse where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON EmailRequestTokenResponse where
-  toJSON = genericToJSON aesonOptions
-
---------------------------------------------------------------------------------
-
-data PhoneRequestTokenRespKey :: Type -> Type where
-  PhoneRequestTokenRespKey_200 :: PhoneRequestTokenRespKey PhoneRequestTokenResponse
-  PhoneRequestTokenRespKey_403 :: PhoneRequestTokenRespKey Data.Aeson.Value
-
-data PhoneRequestTokenRequest = PhoneRequestTokenRequest
-  { _phoneRequestTokenRequest_clientSecret :: Text -- TODO there is a regex
-  , _phoneRequestTokenRequest_country :: Text -- TODO better type
-  -- phoneR ISO two letter code.
-  , _phoneRequestTokenRequest_phoneNumber :: Text -- TODO better type
-  , _phoneRequestTokenRequest_sendAttempt :: Word32 -- TODO width
-  , _phoneRequestTokenRequest_nextLink :: Maybe MatrixUri
-  , _phoneRequestTokenRequest_idServer :: ServerName
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON PhoneRequestTokenRequest where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON PhoneRequestTokenRequest where
-  toJSON = genericToJSON aesonOptions
-
-data PhoneRequestTokenResponse = PhoneRequestTokenResponse
-  { _phoneRequestTokenResponse_sid :: Text -- TODO regex and max len
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON PhoneRequestTokenResponse where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON PhoneRequestTokenResponse where
   toJSON = genericToJSON aesonOptions
 
 --------------------------------------------------------------------------------
