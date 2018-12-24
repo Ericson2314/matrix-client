@@ -9,7 +9,7 @@ import Database.Beam.Migrate
 
 import Matrix.Client.Types
 import Matrix.Client.Types.Auth.Login
---import Matrix.Identifiers
+import Matrix.Identifiers
 
 import Data.DependentXhr
 

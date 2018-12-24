@@ -170,3 +170,9 @@ instance FromJSON RoomId where
   parseJSON = withText "room ID" $ runParserJson parseRoomId
 instance FromJSONKey RoomId where
   fromJSONKey = FromJSONKeyTextParser $ runParserJson parseRoomId
+
+--------------------------------------------------------------------------------
+
+newtype DeviceId = DeviceId { unDeviceId :: Text }
+  deriving (Eq, Ord, Show, Generic)
+  deriving newtype (FromJSON, ToJSON)

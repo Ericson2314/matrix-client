@@ -36,21 +36,6 @@ import           Matrix.Client.Types.Auth.Account
 
 --------------------------------------------------------------------------------
 
--- for JSON instances.
-newtype MatrixUri = MatrixUri { unMatrixUri :: URI }
-  deriving (Eq, Ord, Show, Generic)
-
--- TODO megaparsec -> aeson parser
-instance FromJSON MatrixUri where
-  parseJSON = withText "URL" $ \t -> do
-    Just a <- pure $ parseMaybe (Text.URI.parser :: Parsec Void Text URI) t
-    pure $ MatrixUri a
-
-instance ToJSON MatrixUri where
-  toJSON = String . render . unMatrixUri
-
---------------------------------------------------------------------------------
-
 type Prefix r = 'Left "_matrix" ': Left "client" ': Left "r0" ': r
 
 -- | The Matrix interface for the client to talk to the surver.

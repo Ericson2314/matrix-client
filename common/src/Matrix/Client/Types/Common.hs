@@ -37,3 +37,18 @@ aesonOptions = defaultOptions { Ae.fieldLabelModifier = unCamelPrefixedField }
 unCamelPrefixedField :: String -> String
 unCamelPrefixedField =
   camelTo2 '_' . tail . dropWhile (/= '_') . dropWhile (== '_')
+
+--------------------------------------------------------------------------------
+
+-- for JSON instances.
+newtype MatrixUri = MatrixUri { unMatrixUri :: URI }
+  deriving (Eq, Ord, Show, Generic)
+
+-- TODO megaparsec -> aeson parser
+instance FromJSON MatrixUri where
+  parseJSON = withText "URL" $ \t -> do
+    Just a <- pure $ parseMaybe (Text.URI.parser :: Parsec Void Text URI) t
+    pure $ MatrixUri a
+
+instance ToJSON MatrixUri where
+  toJSON = String . render . unMatrixUri

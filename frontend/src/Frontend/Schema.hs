@@ -10,7 +10,7 @@ import Obelisk.Database.Beam.Entity
 
 import qualified Matrix.Client.Types as M
 import qualified Matrix.Client.Types.Auth.Login as M
---import qualified Matrix.Identifiers as M
+import qualified Matrix.Identifiers as M
 
 import Database.Beam.Matrix.Orphans ()
 import Data.DependentXhr

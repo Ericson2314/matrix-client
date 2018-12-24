@@ -217,8 +217,4 @@ data Login
   -- TODO: Add token login
   deriving (Eq, Ord, Show, Generic)
 
-newtype DeviceId = DeviceId { unDeviceId :: Text }
-  deriving (Eq, Ord, Show, Generic)
-  deriving newtype (FromJSON, ToJSON)
-
 --------------------------------------------------------------------------------
