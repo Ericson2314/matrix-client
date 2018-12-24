@@ -3,28 +3,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Matrix.Client.Types.Common where
 
-import           Control.Lens hiding ((.=))
-import           Control.Applicative (liftA2)
-import           Control.Monad
 import           Data.Aeson
 import qualified Data.Aeson as Ae
-import           Data.Aeson.Utils
-import           Data.Constraint.Extras.TH
-import           Data.DependentXhr
-import           Data.Kind
-import           Data.Map (Map)
-import qualified Data.Map as Map
-import           Data.Some
 import           Data.Text (Text)
-import           Data.Traversable
-import           Data.Int
-import           Data.Word
 import           Data.Void
 import           GHC.Generics
 import           Text.Megaparsec (Parsec, parseMaybe)
 import           Text.URI
-
-import           Matrix.Identifiers
 
 --------------------------------------------------------------------------------
 

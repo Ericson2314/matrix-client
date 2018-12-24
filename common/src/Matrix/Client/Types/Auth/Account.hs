@@ -1,28 +1,21 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
-module Matrix.Client.Types.Auth.Account where
+module Matrix.Client.Types.Auth.Account
+  ( module Matrix.Client.Types.Auth.Account
+  , module Matrix.Client.Types.Auth.Account.ThirdParty
+  ) where
 
 import           Control.Lens hiding ((.=))
 import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.Aeson as Ae
-import           Data.Aeson.Utils
 import           Data.Constraint.Extras.TH
-import           Data.DependentXhr
 import           Data.Kind
-import           Data.Map (Map)
-import qualified Data.Map as Map
-import           Data.Some
 import           Data.Text (Text)
-import           Data.Traversable
-import           Data.Int
-import           Data.Word
-import           Data.Void
 import           GHC.Generics
-import           Text.Megaparsec (Parsec, parseMaybe)
-import           Text.URI
+
+import           Data.DependentXhr
 
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
@@ -78,7 +71,7 @@ data AccountRoute httpType route needsAuth request respPerCode where
        'False
        AvailableRequest
        AvailableRespKey
-  AccountRoute_Account
+  AccountRoute_ThirdParty
     :: Account3PIdRoute httpType route needsAuth request respPerCode
     -> AccountRoute
        httpType
@@ -180,3 +173,17 @@ instance FromJSON AvailableResponseUnavailable where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON AvailableResponseUnavailable where
   toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+join <$> traverse deriveArgDict
+  [ ''RegisterRespKey
+  , ''DeactivateRespKey
+  , ''AvailableRespKey
+  ]
+
+join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
+  [ ''RegisterRequest, ''RegisterResponse
+  , ''DeactivateRequest, ''DeactivateResponse
+  , ''AvailableRequest, ''AvailableResponseAvailable, ''AvailableResponseUnavailable
+  ]

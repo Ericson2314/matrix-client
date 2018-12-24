@@ -7,22 +7,11 @@ import           Control.Lens hiding ((.=))
 import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.Aeson as Ae
-import           Data.Aeson.Utils
 import           Data.Constraint.Extras.TH
-import           Data.DependentXhr
 import           Data.Kind
-import           Data.Map (Map)
-import qualified Data.Map as Map
-import           Data.Some
 import           Data.Text (Text)
-import           Data.Traversable
-import           Data.Int
 import           Data.Word
-import           Data.Void
 import           GHC.Generics
-import           Text.Megaparsec (Parsec, parseMaybe)
-import           Text.URI
 
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
@@ -244,3 +233,21 @@ instance FromJSON PhoneRequestTokenResponse where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON PhoneRequestTokenResponse where
   toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+join <$> traverse deriveArgDict
+  [ ''Get3PIdRespKey
+  , ''Add3PIdRespKey
+  , ''Delete3PIdRespKey
+  , ''EmailRequestTokenRespKey
+  , ''PhoneRequestTokenRespKey
+  ]
+
+join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
+  [ ''Get3PIdRequest, ''Get3PIdResponse
+  , ''Add3PIdRequest, ''Add3PIdResponse
+  , ''Delete3PIdRequest, ''Delete3PIdResponse
+  , ''EmailRequestTokenRequest, ''EmailRequestTokenResponse
+  , ''PhoneRequestTokenRequest, ''PhoneRequestTokenResponse
+  ]
