@@ -79,6 +79,13 @@ data AccountRoute httpType route needsAuth request respPerCode where
        needsAuth
        request
        respPerCode
+  AccountRoute_WhoAmI
+    :: AccountRoute
+       "GET"
+       '[ 'Left "register", 'Left "available" ]
+       'True
+       WhoAmIRequest
+       WhoAmIRespKey
 
 --------------------------------------------------------------------------------
 
@@ -176,14 +183,41 @@ instance ToJSON AvailableResponseUnavailable where
 
 --------------------------------------------------------------------------------
 
+data WhoAmIRespKey :: Type -> Type where
+  WhoAmIRespKey_200 :: WhoAmIRespKey WhoAmIResponse
+  WhoAmIRespKey_401 :: WhoAmIRespKey Data.Aeson.Value
+  WhoAmIRespKey_403 :: WhoAmIRespKey Data.Aeson.Value
+  WhoAmIRespKey_429 :: WhoAmIRespKey Data.Aeson.Value
+
+data WhoAmIRequest = WhoAmIRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON WhoAmIRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON WhoAmIRequest where
+  toJSON = genericToJSON aesonOptions
+
+data WhoAmIResponse = WhoAmIResponse
+  { _whoAmIResponse_userId :: UserId
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON WhoAmIResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON WhoAmIResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
 join <$> traverse deriveArgDict
   [ ''RegisterRespKey
   , ''DeactivateRespKey
   , ''AvailableRespKey
+  , ''WhoAmIRespKey
   ]
 
 join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
   [ ''RegisterRequest, ''RegisterResponse
   , ''DeactivateRequest, ''DeactivateResponse
   , ''AvailableRequest, ''AvailableResponseAvailable, ''AvailableResponseUnavailable
+  , ''WhoAmIRequest, ''WhoAmIResponse
   ]
