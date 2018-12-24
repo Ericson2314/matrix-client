@@ -51,6 +51,20 @@ data AccountRoute httpType route needsAuth request respPerCode where
        'False
        PhoneRequestTokenRequest
        PhoneRequestTokenRespKey
+  AccountRoute_Deactivate
+    :: AccountRoute
+       "POST"
+       '[ 'Left "account", 'Left "deactivate" ]
+       'True
+       DeactivateRequest
+       DeactivateRespKey
+  AccountRoute_Available
+    :: AccountRoute
+       "GET"
+       '[ 'Left "register", 'Left "available" ]
+       'False
+       AvailableRequest
+       AvailableRespKey
 
 --------------------------------------------------------------------------------
 
@@ -155,3 +169,60 @@ instance ToJSON PhoneRequestTokenResponse where
 
 --------------------------------------------------------------------------------
 
+data DeactivateRespKey :: Type -> Type where
+  DeactivateRespKey_200 :: DeactivateRespKey DeactivateResponse
+  DeactivateRespKey_429 :: DeactivateRespKey Data.Aeson.Value
+
+data DeactivateRequest = DeactivateRequest
+  { _deactivateRequest_auth :: AuthenticationData
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON DeactivateRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON DeactivateRequest where
+  toJSON = genericToJSON aesonOptions
+
+data DeactivateResponse = DeactivateResponse
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON DeactivateResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON DeactivateResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data AvailableRespKey :: Type -> Type where
+  AvailableRespKey_200 :: AvailableRespKey AvailableResponseAvailable
+  AvailableRespKey_400 :: AvailableRespKey AvailableResponseUnavailable
+  AvailableRespKey_429 :: AvailableRespKey Data.Aeson.Value
+
+data AvailableRequest = AvailableRequest
+  { _availableRequest_username :: UserName
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON AvailableRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON AvailableRequest where
+  toJSON = genericToJSON aesonOptions
+
+data AvailableResponseAvailable = AvailableResponseAvailable
+  { _availableResponseAvailable_available :: Bool
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON AvailableResponseAvailable where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON AvailableResponseAvailable where
+  toJSON = genericToJSON aesonOptions
+
+-- TODO this is just one example of the common pattern of an error code with
+-- message. Should factor out and newtype.
+data AvailableResponseUnavailable = AvailableResponseUnvailable
+  { _availableResponseUnavailable_errorCode :: Text -- TODO enum
+  , _availableResponseUnavailable_error :: Text
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON AvailableResponseUnavailable where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON AvailableResponseUnavailable where
+  toJSON = genericToJSON aesonOptions
