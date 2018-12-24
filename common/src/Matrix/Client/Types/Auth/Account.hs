@@ -37,6 +37,20 @@ data AccountRoute httpType route needsAuth request respPerCode where
        'False
        RegisterRequest
        RegisterRespKey
+  AccountRoute_EmailRequestToken
+    :: AccountRoute
+       "POST"
+       '[ 'Left "register", 'Left "email", 'Left "requestToken" ]
+       'False
+       EmailRequestTokenRequest
+       EmailRequestTokenRespKey
+  AccountRoute_PhoneEmailRequestToken
+    :: AccountRoute
+       "POST"
+       '[ 'Left "register", 'Left "msisdn", 'Left "requestToken" ]
+       'False
+       PhoneRequestTokenRequest
+       PhoneRequestTokenRespKey
 
 --------------------------------------------------------------------------------
 
@@ -79,6 +93,64 @@ data RegisterResponse = RegisterResponse
 instance FromJSON RegisterResponse where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON RegisterResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data EmailRequestTokenRespKey :: Type -> Type where
+  EmailRequestTokenRespKey_200 :: EmailRequestTokenRespKey EmailRequestTokenResponse
+  EmailRequestTokenRespKey_403 :: EmailRequestTokenRespKey Data.Aeson.Value
+
+data EmailRequestTokenRequest = EmailRequestTokenRequest
+  { _emailRequestTokenRequest_clientSecret :: Text -- TODO there is a regex
+  , _emailRequestTokenRequest_email :: Text -- TODO better type
+  , _emailRequestTokenRequest_sendAttempt :: Word32 -- TODO width
+  , _emailRequestTokenRequest_nextLink :: Maybe MatrixUri
+  , _emailRequestTokenRequest_idServer :: ServerName
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON EmailRequestTokenRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON EmailRequestTokenRequest where
+  toJSON = genericToJSON aesonOptions
+
+data EmailRequestTokenResponse = EmailRequestTokenResponse
+  { _emailRequestTokenResponse_sid :: Text -- TODO regex and max len
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON EmailRequestTokenResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON EmailRequestTokenResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data PhoneRequestTokenRespKey :: Type -> Type where
+  PhoneRequestTokenRespKey_200 :: PhoneRequestTokenRespKey PhoneRequestTokenResponse
+  PhoneRequestTokenRespKey_403 :: PhoneRequestTokenRespKey Data.Aeson.Value
+
+data PhoneRequestTokenRequest = PhoneRequestTokenRequest
+  { _phoneRequestTokenRequest_clientSecret :: Text -- TODO there is a regex
+  , _phoneRequestTokenRequest_country :: Text -- TODO better type
+  -- phoneR ISO two letter code.
+  , _phoneRequestTokenRequest_phoneNumber :: Text -- TODO better type
+  , _phoneRequestTokenRequest_sendAttempt :: Word32 -- TODO width
+  , _phoneRequestTokenRequest_nextLink :: Maybe MatrixUri
+  , _phoneRequestTokenRequest_idServer :: ServerName
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON PhoneRequestTokenRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON PhoneRequestTokenRequest where
+  toJSON = genericToJSON aesonOptions
+
+data PhoneRequestTokenResponse = PhoneRequestTokenResponse
+  { _phoneRequestTokenResponse_sid :: Text -- TODO regex and max len
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON PhoneRequestTokenResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON PhoneRequestTokenResponse where
   toJSON = genericToJSON aesonOptions
 
 --------------------------------------------------------------------------------
