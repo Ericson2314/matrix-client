@@ -63,13 +63,14 @@ data ClientServerRoute :: Route where
        needsAuth
        request
        respPerCode
-  ClientServerRoute_Sync
-    :: ClientServerRoute
-       "GET"
-       ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "sync"]
-       'True
-       SyncRequest
-       SyncRespKey
+  ClientServerRoute_Event
+    :: EventRoute httpType route needsAuth request respPerCode
+    -> ClientServerRoute
+       httpType
+       (Prefix route)
+       needsAuth
+       request
+       respPerCode
   ClientServerRoute_Join
     :: ClientServerRoute
        "PUT"

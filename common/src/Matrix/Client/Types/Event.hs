@@ -23,6 +23,17 @@ import           Matrix.Client.Types.Filter
 
 --------------------------------------------------------------------------------
 
+data EventRoute httpType route needsAuth request respPerCode where
+  EventRoute_Sync
+    :: EventRoute
+       "GET"
+       '[ 'Left "sync"]
+       'True
+       SyncRequest
+       SyncRespKey
+
+--------------------------------------------------------------------------------
+
 data SyncRespKey :: Type -> Type where
   SyncRespKey_Valid :: SyncRespKey SyncResponse
   SyncRespKey_Invalid :: SyncRespKey Ae.Value
