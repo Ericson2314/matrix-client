@@ -166,6 +166,7 @@ data SyncResponse = SyncResponse
   { _syncResponse_nextBatch :: SyncBatchToken -- REQUIRED
   , _syncResponse_rooms :: Rooms
   , _syncResponse_presence :: Presence
+  , _syncResponse_accountData :: AccountData
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON SyncResponse where
