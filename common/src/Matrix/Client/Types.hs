@@ -8,6 +8,7 @@ module Matrix.Client.Types
   , module Matrix.Client.Types.Auth.Account
   , module Matrix.Client.Types.Filter
   , module Matrix.Client.Types.Event
+  , module Matrix.Client.Types.Event.Route
   ) where
 
 import           Control.Lens hiding ((.=))
@@ -32,6 +33,7 @@ import           Matrix.Client.Types.Auth.Login
 import           Matrix.Client.Types.Auth.Account
 import           Matrix.Client.Types.Filter
 import           Matrix.Client.Types.Event
+import           Matrix.Client.Types.Event.Route
 
 --------------------------------------------------------------------------------
 

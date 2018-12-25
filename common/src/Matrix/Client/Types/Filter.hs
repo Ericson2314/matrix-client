@@ -18,6 +18,7 @@ import           GHC.Generics
 import           Data.DependentXhr
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
+import           Matrix.Client.Types.Event
 
 --------------------------------------------------------------------------------
 

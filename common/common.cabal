@@ -26,6 +26,7 @@ library
     Matrix.Client.Types.Auth.Account.ThirdParty
     Matrix.Client.Types.Filter
     Matrix.Client.Types.Event
+    Matrix.Client.Types.Event.Route
     Matrix.Identifiers
 
   other-modules:

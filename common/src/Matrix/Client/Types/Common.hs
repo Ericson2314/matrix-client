@@ -37,11 +37,3 @@ instance FromJSON MatrixUri where
 
 instance ToJSON MatrixUri where
   toJSON = String . render . unMatrixUri
-
---------------------------------------------------------------------------------
-
--- TODO a lot hinges on this, probably use a GADT with unknown raw JSON
--- fallback.
-newtype EventType = EventType { getEventType :: Text }
-  deriving (Eq, Ord, Show, Generic)
-  deriving newtype (FromJSON, ToJSON)
