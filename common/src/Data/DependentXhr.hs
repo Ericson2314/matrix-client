@@ -132,8 +132,37 @@ instance KnownNeedsAuth 'True where
   _knownNeedsAuth_fmaplike = fmap
   makeToken = Just
 
+data Method
+  = GET
+  | PUT
+  | POST
+  | DELETE
+  deriving (Eq, Ord, Show, Generic, Enum)
+
+methodToText :: Method -> Text
+methodToText = \case
+  GET -> "GET"
+  PUT -> "PUT"
+  POST -> "POST"
+  DELETE -> "DELETE"
+
+class ReifyMethod (m :: Method) where
+  reifyMethod :: Method
+
+instance ReifyMethod 'GET where
+  reifyMethod = GET
+
+instance ReifyMethod 'PUT where
+  reifyMethod = PUT
+
+instance ReifyMethod 'POST where
+  reifyMethod = POST
+
+instance ReifyMethod 'DELETE where
+  reifyMethod = DELETE
+
 type Route
-  =  Symbol
+  =  Method
   -> RoutePath
   -> Bool
   -> Type
@@ -141,10 +170,16 @@ type Route
   -> Type
 
 performRoutedRequest
-  :: forall (routeRelation :: Route) js m ty (route :: RoutePath) (needsAuth :: Bool) request respPerCode
-  .  ( JSConstraints js m, KnownSymbol ty, KnownRoute route, KnownNeedsAuth needsAuth
-     , ToJSON request, GetStatusKey respPerCode, Has FromJSON respPerCode)
-  => routeRelation ty route needsAuth request respPerCode
+  :: forall (routeRelation :: Route) js m (method :: Method) (route :: RoutePath) (needsAuth :: Bool) request respPerCode
+  .  ( JSConstraints js m
+     , KnownRoute route
+     , KnownNeedsAuth needsAuth
+     , ToJSON request
+     , GetStatusKey respPerCode
+     , Has FromJSON respPerCode
+     , ReifyMethod method
+     )
+  => routeRelation method route needsAuth request respPerCode
   -> Text -- ^ Home Server base URL
   -> (AuthFunctor needsAuth
       (request
@@ -153,7 +188,7 @@ performRoutedRequest
 performRoutedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
   (\mAuth r -> _knownRoute_fmaplike @route
     (\(routeList :: [Text]) k -> performXhrCallbackWithErrorJSON
-      @js @m @request @respPerCode (reifyText @ty) (T.intercalate "/" $ hs : routeList) mAuth r k)
+      @js @m @request @respPerCode (methodToText $ reifyMethod @method) (T.intercalate "/" $ hs : routeList) mAuth r k)
     (reifyRoute @route))
   (makeToken @needsAuth)
 

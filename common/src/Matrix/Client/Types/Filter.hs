@@ -14,6 +14,7 @@ import           Data.Text (Text)
 import           Data.Word
 import           GHC.Generics
 
+import           Data.DependentXhr
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
 
@@ -101,14 +102,14 @@ newtype FilterId = FilterId { unFilterId :: Text }
 data FilterRoute httpType route needsAuth request respPerCode where
   FilterRoute_PutFilter
     :: FilterRoute
-       "POST"
+       'POST
        '[ 'Left "user", 'Right UserId, 'Left "filter" ]
        'True
        PutFilterRequest
        PutFilterRespKey
   FilterRoute_GetFilter
     :: FilterRoute
-       "GET"
+       'GET
        '[ 'Left "user", 'Right UserId, 'Left "filter", 'Right FilterId ]
        'True
        GetFilterRequest

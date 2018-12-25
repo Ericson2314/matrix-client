@@ -38,35 +38,35 @@ instance ToJSON AuthenticationData where
 data AccountRoute httpType route needsAuth request respPerCode where
   AccountRoute_Register
     :: AccountRoute
-       "POST"
+       'POST
        '[ 'Left "register" ]
        'False
        RegisterRequest
        RegisterRespKey
   AccountRoute_EmailRequestToken
     :: AccountRoute
-       "POST"
+       'POST
        '[ 'Left "register", 'Left "email", 'Left "requestToken" ]
        'False
        EmailRequestTokenRequest
        EmailRequestTokenRespKey
   AccountRoute_PhoneEmailRequestToken
     :: AccountRoute
-       "POST"
+       'POST
        '[ 'Left "register", 'Left "msisdn", 'Left "requestToken" ]
        'False
        PhoneRequestTokenRequest
        PhoneRequestTokenRespKey
   AccountRoute_Deactivate
     :: AccountRoute
-       "POST"
+       'POST
        '[ 'Left "account", 'Left "deactivate" ]
        'True
        DeactivateRequest
        DeactivateRespKey
   AccountRoute_Available
     :: AccountRoute
-       "GET"
+       'GET
        '[ 'Left "register", 'Left "available" ]
        'False
        AvailableRequest
@@ -81,7 +81,7 @@ data AccountRoute httpType route needsAuth request respPerCode where
        respPerCode
   AccountRoute_WhoAmI
     :: AccountRoute
-       "GET"
+       'GET
        '[ 'Left "register", 'Left "available" ]
        'True
        WhoAmIRequest

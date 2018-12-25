@@ -13,6 +13,7 @@ import           Data.Text (Text)
 import           Data.Word
 import           GHC.Generics
 
+import           Data.DependentXhr
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
 
@@ -21,35 +22,35 @@ import           Matrix.Client.Types.Common
 data Account3PIdRoute httpType route needsAuth request respPerCode where
   Account3PIdRoute_Get
     :: Account3PIdRoute
-       "GET"
+       'GET
        '[ ]
        'True
        Get3PIdRequest
        Get3PIdRespKey
   Account3PIdRoute_Add
     :: Account3PIdRoute
-       "POST"
+       'POST
        '[ ]
        'True
        Add3PIdRequest
        Add3PIdRespKey
   Account3PIdRoute_Delete
     :: Account3PIdRoute
-       "POST"
+       'POST
        '[ 'Left "delete" ]
        'True
        Delete3PIdRequest
        Delete3PIdRespKey
   Account3PIdRoute_EmailRequestToken
     :: Account3PIdRoute
-       "POST"
+       'POST
        '[ 'Left "email", 'Left "requestToken" ]
        'False
        EmailRequestTokenRequest
        EmailRequestTokenRespKey
   Account3PIdRoute_PhoneEmailRequestToken
     :: Account3PIdRoute
-       "POST"
+       'POST
        '[ 'Left "msisdn", 'Left "requestToken" ]
        'False
        PhoneRequestTokenRequest

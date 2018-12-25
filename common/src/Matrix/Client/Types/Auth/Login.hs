@@ -26,28 +26,28 @@ import           Matrix.Client.Types.Common
 data LoginRoute httpType route needsAuth request respPerCode where
   LoginRoute_Login'
     :: LoginRoute
-       "GET"
+       'GET
        '[ 'Left "login" ]
        'False
        Login'Request
        Login'RespKey
   LoginRoute_Login
     :: LoginRoute
-       "POST"
+       'POST
        '[ 'Left "login" ]
        'False
        LoginRequest
        LoginRespKey
   LoginRoute_Logout
     :: LoginRoute
-       "POST"
+       'POST
        '[ 'Left "logout" ]
        'True
        LogoutRequest
        LogoutRespKey
   LoginRoute_LogoutAll
     :: LoginRoute
-       "POST"
+       'POST
        '[ 'Left "logout", 'Left "all" ]
        'True
        LogoutAllRequest

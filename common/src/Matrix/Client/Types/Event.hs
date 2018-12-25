@@ -17,6 +17,7 @@ import           Data.Int
 import           Data.Word
 import           GHC.Generics
 
+import           Data.DependentXhr
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
 import           Matrix.Client.Types.Filter
@@ -26,7 +27,7 @@ import           Matrix.Client.Types.Filter
 data EventRoute httpType route needsAuth request respPerCode where
   EventRoute_Sync
     :: EventRoute
-       "GET"
+       'GET
        '[ 'Left "sync"]
        'True
        SyncRequest

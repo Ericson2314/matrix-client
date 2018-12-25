@@ -73,7 +73,7 @@ data ClientServerRoute :: Route where
        respPerCode
   ClientServerRoute_Join
     :: ClientServerRoute
-       "PUT"
+       'PUT
        ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "rooms", 'Right RoomId, 'Left "join"]
        'True
        JoinRequest
