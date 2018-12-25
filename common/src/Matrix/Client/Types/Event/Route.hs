@@ -167,6 +167,9 @@ data SyncResponse = SyncResponse
   , _syncResponse_rooms :: Rooms
   , _syncResponse_presence :: Presence
   , _syncResponse_accountData :: AccountData
+  -- , _syncResponse_toDevice :: ToDevice
+  -- , _syncResponse_deviceLists :: DeviceLists
+  -- , _syncResponse_deviceOneTimeKeysCount :: Map Text Word32
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON SyncResponse where
