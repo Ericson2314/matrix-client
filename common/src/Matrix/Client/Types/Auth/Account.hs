@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeInType #-}
 module Matrix.Client.Types.Auth.Account
   ( module Matrix.Client.Types.Auth.Account
   , module Matrix.Client.Types.Auth.Account.ThirdParty
@@ -35,7 +36,7 @@ instance ToJSON AuthenticationData where
 
 --------------------------------------------------------------------------------
 
-data AccountRoute httpType route needsAuth request respPerCode where
+data AccountRoute :: Route where
   AccountRoute_Register
     :: AccountRoute
        'POST

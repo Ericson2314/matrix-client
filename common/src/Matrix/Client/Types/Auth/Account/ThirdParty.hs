@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeInType #-}
 module Matrix.Client.Types.Auth.Account.ThirdParty where
 
 import           Control.Lens hiding ((.=))
@@ -19,7 +20,7 @@ import           Matrix.Client.Types.Common
 
 --------------------------------------------------------------------------------
 
-data Account3PIdRoute httpType route needsAuth request respPerCode where
+data Account3PIdRoute :: Route where
   Account3PIdRoute_Get
     :: Account3PIdRoute
        'GET

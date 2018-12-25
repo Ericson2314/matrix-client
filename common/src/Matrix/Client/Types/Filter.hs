@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeInType #-}
 module Matrix.Client.Types.Filter where
 
 import           Control.Lens hiding ((.=))
@@ -99,7 +100,7 @@ newtype FilterId = FilterId { unFilterId :: Text }
 
 --------------------------------------------------------------------------------
 
-data FilterRoute httpType route needsAuth request respPerCode where
+data FilterRoute :: Route where
   FilterRoute_PutFilter
     :: FilterRoute
        'POST

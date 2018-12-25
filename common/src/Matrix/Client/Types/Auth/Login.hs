@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeInType #-}
 module Matrix.Client.Types.Auth.Login where
 
 import           Control.Lens hiding ((.=))
@@ -23,7 +24,7 @@ import           Matrix.Client.Types.Common
 
 --------------------------------------------------------------------------------
 
-data LoginRoute httpType route needsAuth request respPerCode where
+data LoginRoute :: Route where
   LoginRoute_Login'
     :: LoginRoute
        'GET

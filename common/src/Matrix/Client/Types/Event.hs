@@ -1,6 +1,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeInType #-}
 module Matrix.Client.Types.Event where
 
 import           Control.Lens hiding ((.=))
@@ -24,7 +25,7 @@ import           Matrix.Client.Types.Filter
 
 --------------------------------------------------------------------------------
 
-data EventRoute httpType route needsAuth request respPerCode where
+data EventRoute :: Route where
   EventRoute_Sync
     :: EventRoute
        'GET
