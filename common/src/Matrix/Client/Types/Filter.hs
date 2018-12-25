@@ -11,6 +11,7 @@ import           Data.Aeson
 import qualified Data.Aeson as Ae
 import           Data.Constraint.Extras.TH
 import           Data.Kind
+import           Data.Some
 import           Data.Text (Text)
 import           Data.Word
 import           GHC.Generics
@@ -49,9 +50,9 @@ instance ToJSON EventFormat where
 data EventFilter = EventFilter
   { _eventFilter_limit :: Word32
   , _eventFilter_notSenders :: [UserId]
-  , _eventFilter_notTypes :: [EventType]
+  , _eventFilter_notTypes :: [SomeEventType]
   , _eventFilter_senders :: Maybe [UserId]
-  , _eventFilter_types :: Maybe [EventType]
+  , _eventFilter_types :: Maybe [SomeEventType]
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON EventFilter where
@@ -78,9 +79,9 @@ instance ToJSON RoomFilter where
 data RoomEventFilter = RoomEventFilter
   { _roomEventFilter_limit :: Word32
   , _roomEventFilter_notSenders :: [UserId]
-  , _roomEventFilter_notTypes :: [EventType]
+  , _roomEventFilter_notTypes :: [SomeEventType]
   , _roomEventFilter_senders :: Maybe [UserId]
-  , _roomEventFilter_types :: Maybe [EventType]
+  , _roomEventFilter_types :: Maybe [SomeEventType]
   , _roomEventFilter_notRooms :: [RoomId]
   , _roomEventFilter_rooms :: Maybe [RoomId]
   , _roomEventFilter_containsUrl :: Maybe Bool
