@@ -58,8 +58,6 @@ instance FromJSON EventFilter where
 instance ToJSON EventFilter where
   toJSON = genericToJSON aesonOptions
 
-type EventType = Text -- TODO
-
 data RoomFilter = RoomFilter
   { _roomFilter_notRooms :: [RoomId]
   , _roomFilter_rooms :: Maybe [RoomId]

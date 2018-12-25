@@ -25,6 +25,13 @@ import           Matrix.Client.Types.Filter
 
 --------------------------------------------------------------------------------
 
+-- | TODO I think this is just opaque string but double check
+newtype StateKey = StateKey { getStateKey :: Text }
+  deriving (Eq, Ord, Show, Generic)
+  deriving newtype (FromJSON, ToJSON)
+
+--------------------------------------------------------------------------------
+
 data EventRoute :: Route where
   EventRoute_Sync
     :: EventRoute
@@ -33,6 +40,83 @@ data EventRoute :: Route where
        'True
        SyncRequest
        SyncRespKey
+  EventRoute_GetRoomEvent
+    :: EventRoute
+       'GET
+       '[ 'Left "rooms", 'Right RoomId, 'Left "event", 'Right EventId ]
+       'True
+       () --GetRoomEventRequest
+       SyncRespKey --GetRoomEventRespKey
+  EventRoute_GetRoomStateAt
+    :: EventRoute
+       'GET
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType, 'Right StateKey ]
+       'True
+       () --GetRoomStateAtRequest
+       SyncRespKey --GetRoomStateAtRespKey
+  EventRoute_GetRoomStateCurrent
+    :: EventRoute
+       'GET
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType ]
+       'True
+       () --GetRoomStateCurrentRequest
+       SyncRespKey --GetRoomStateCurrentRespKey
+  EventRoute_GetRoomStateAll
+    :: EventRoute
+       'GET
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state" ]
+       'True
+       () --GetRoomStateAllRequest
+       SyncRespKey --GetRoomStateAllRespKey
+  EventRoute_GetRoomMembers
+    :: EventRoute
+       'GET
+       '[ 'Left "rooms", 'Right RoomId, 'Left "members" ]
+       'True
+       () --GetRoomMembersRequest
+       SyncRespKey --GetRoomMembersRespKey
+  EventRoute_GetRoomJoinedMembers
+    :: EventRoute
+       'GET
+       '[ 'Left "rooms", 'Right RoomId, 'Left "joined_members" ]
+       'True
+       () --GetRoomJoinedMembersRequest
+       SyncRespKey --GetRoomJoinedMembersRespKey
+  EventRoute_GetRoomMessages
+    :: EventRoute
+       'GET
+       '[ 'Left "rooms", 'Right RoomId, 'Left "messages" ]
+       'True
+       () --GetRoomMessagesRequest
+       SyncRespKey --GetRoomMessagesRespKey
+  EventRoute_PutRoomStateAt
+    :: EventRoute
+       'PUT
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType, 'Right StateKey ]
+       'True
+       () --PutRoomStateAtRequest
+       SyncRespKey --PutRoomStateAtRespKey
+  EventRoute_PutRoomStateCurrent
+    :: EventRoute
+       'PUT
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType ]
+       'True
+       () --PutRoomStateCurrentRequest
+       SyncRespKey --PutRoomStateCurrentRespKey
+  EventRoute_PutRoom
+    :: EventRoute
+       'PUT
+       '[ 'Left "rooms", 'Right RoomId, 'Left "send", 'Right EventType, 'Right TxnId ]
+       'True
+       () --PutRoomRequest
+       SyncRespKey --PutRoomRespKey
+  EventRoute_PutRoomRedact
+    :: EventRoute
+       'PUT
+       '[ 'Left "rooms", 'Right RoomId, 'Left "redact", 'Right EventType, 'Right TxnId ]
+       'True
+       () --PutRoomRequestRedact
+       SyncRespKey --PutRoomRespKeyRedact
 
 --------------------------------------------------------------------------------
 
@@ -246,8 +330,8 @@ instance ToJSON State where
 -- | Added C parameter so as to keep having Ord instances.
 data StateEvent c = StateEvent
   { _stateEvent_content :: c -- REQUIRED
-  , _stateEvent_type :: Text -- REQUIRED
-  , _stateEvent_eventId :: Text -- REQUIRED
+  , _stateEvent_type :: EventType -- REQUIRED
+  , _stateEvent_eventId :: EventId -- REQUIRED
   , _stateEvent_sender :: Text -- REQUIRED
   , _stateEvent_originServerAs :: Int32 -- REQUIRED
   , _stateEvent_unsigned :: UnsignedData
@@ -273,8 +357,8 @@ instance ToJSON Timeline where
 
 data RoomEvent c = RoomEvent
   { _roomEvent_content :: c -- REQUIRED
-  , _roomEvent_type :: Text -- REQUIRED
-  , _roomEvent_eventId :: Text -- REQUIRED
+  , _roomEvent_type :: EventType -- REQUIRED
+  , _roomEvent_eventId :: EventId -- REQUIRED
   , _roomEvent_sender :: Text -- REQUIRED
   , _roomEvent_unsigned :: UnsignedData -- REQUIRED
   } deriving (Eq, Ord, Show, Generic)
@@ -315,7 +399,7 @@ instance ToJSON AccountData where
 
 data Event c = Event
   { _content :: c
-  , _type :: Text
+  , _type :: EventType
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON c => FromJSON (Event c) where

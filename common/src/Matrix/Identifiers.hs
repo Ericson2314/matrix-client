@@ -173,6 +173,44 @@ instance FromJSONKey RoomId where
 
 --------------------------------------------------------------------------------
 
+data EventId = EventId
+  { _eventId_opaque :: Text
+  , _eventId_domain :: ServerName
+  }
+  deriving (Eq, Ord, Show, Generic)
+makeLenses ''EventId
+
+printEventId :: EventId -> Text
+printEventId (EventId u d) = "@" <> u <> ":" <> printServerName d
+
+parseEventId :: Parser EventId
+parseEventId = do
+  _ <- char '!'
+  u <- takeWhile1 (/= ':')
+  _ <- char ':'
+  sn <- parseServerName
+  pure $ EventId u sn
+
+instance ToRoutePiece EventId where
+  toRoute = printEventId
+
+instance ToJSON EventId where
+  toJSON sn = toJSON $ printEventId sn
+instance ToJSONKey EventId where
+  toJSONKey = toJSONKeyText printEventId
+instance FromJSON EventId where
+  parseJSON = withText "room ID" $ runParserJson parseEventId
+instance FromJSONKey EventId where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseEventId
+
+--------------------------------------------------------------------------------
+
 newtype DeviceId = DeviceId { unDeviceId :: Text }
+  deriving (Eq, Ord, Show, Generic)
+  deriving newtype (FromJSON, ToJSON)
+
+--------------------------------------------------------------------------------
+
+newtype TxnId = TxnId { unTxnId :: Text }
   deriving (Eq, Ord, Show, Generic)
   deriving newtype (FromJSON, ToJSON)
