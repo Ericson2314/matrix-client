@@ -221,7 +221,7 @@ instance ToJSON UnreadNotificationCounts where
   toJSON = genericToJSON aesonOptions
 
 data InvitedRoom = InvitedRoom
-  { _InvitedRoom_invite_state :: InviteState -- [Event]
+  { _InvitedRoom_invite_state :: InviteState
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON InvitedRoom where
@@ -251,20 +251,6 @@ instance FromJSON StrippedState where
 instance ToJSON StrippedState where
   toJSON = genericToJSON aesonOptions
 
-data EventContent = EventContent
-  { _eventContent_avatar_url :: MatrixUri
-  , _eventContent_displayname :: Maybe Text
-  , _eventContent_membership :: Membership
-  , _eventContent_isDirect :: Bool
-  , _eventContent_thirdPartyInvite :: Invite
-  , _eventContent_unsigned ::UnsignedData
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON EventContent where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON EventContent where
-  toJSON = genericToJSON aesonOptions
-
 data Invite = Invite
   { _invite_displayName :: Text
   , _invite_signed :: Signed
@@ -290,20 +276,6 @@ instance ToJSON Signed where
 newtype Signatures = Signatures (Map Text (Map Text Text))
   deriving (Eq, Ord, Show, Generic)
   deriving newtype (FromJSON, ToJSON)
-
-data Membership
-  = Membership_Invite
-  | Membership_Join
-  | Membership_Knock
-  | Membership_Leave
-  | Membership_Ban
-  deriving (Eq, Ord, Show, Generic, Enum, Bounded)
-
--- TODO fix enum instances
-instance FromJSON Membership where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON Membership where
-  toJSON = genericToJSON aesonOptions
 
 data LeftRoom = LeftRoom
   { _leftRoom_state :: State
@@ -366,17 +338,6 @@ instance FromJSON c => FromJSON (RoomEvent c) where
 instance ToJSON c => ToJSON (RoomEvent c) where
   toJSON = genericToJSON aesonOptions
 
-data UnsignedData = UnsignedData
-  { _unsignedData_age :: Int64 -- documented to maybe be negative
-  , _unsignedData_redactedBecause :: Event () -- enphasized Optional
-  , _unsignedData_transactionId :: Text
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON UnsignedData where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON UnsignedData where
-  toJSON = genericToJSON aesonOptions
-
 data Presence = Presence
   { _presence_events :: [Event ()] -- TODO fix `()`
   } deriving (Eq, Ord, Show, Generic)
@@ -394,11 +355,6 @@ instance FromJSON AccountData where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON AccountData where
   toJSON = genericToJSON aesonOptions
-
-data Event c = Event
-  { _content :: c
-  , _type :: EventType
-  } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON c => FromJSON (Event c) where
   parseJSON = genericParseJSON aesonOptions

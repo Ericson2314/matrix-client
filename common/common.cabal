@@ -15,6 +15,7 @@ library
                , modern-uri
                , mtl
                , obelisk-route
+               , singletons
                , text
 
   exposed-modules:
