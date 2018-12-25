@@ -24,6 +24,7 @@ library
     Matrix.Client.Types.Auth.Login
     Matrix.Client.Types.Auth.Account
     Matrix.Client.Types.Auth.Account.ThirdParty
+    Matrix.Client.Types.Filter
     Matrix.Identifiers
 
   other-modules:

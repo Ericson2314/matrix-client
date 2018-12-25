@@ -6,6 +6,7 @@ module Matrix.Client.Types
   ( module Matrix.Client.Types
   , module Matrix.Client.Types.Auth.Login
   , module Matrix.Client.Types.Auth.Account
+  , module Matrix.Client.Types.Filter
   ) where
 
 import           Control.Lens hiding ((.=))
@@ -28,6 +29,7 @@ import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
 import           Matrix.Client.Types.Auth.Login
 import           Matrix.Client.Types.Auth.Account
+import           Matrix.Client.Types.Filter
 
 --------------------------------------------------------------------------------
 
@@ -51,6 +53,14 @@ data ClientServerRoute :: Route where
        needsAuth
        request
        respPerCode
+  ClientServerRoute_Filter
+    :: FilterRoute httpType route needsAuth request respPerCode
+    -> ClientServerRoute
+       httpType
+       (Prefix route)
+       needsAuth
+       request
+       respPerCode
   ClientServerRoute_Sync
     :: ClientServerRoute
        "GET"
@@ -58,13 +68,6 @@ data ClientServerRoute :: Route where
        'True
        SyncRequest
        SyncRespKey
-  ClientServerRoute_PutFilter
-    :: ClientServerRoute
-       "POST"
-       ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "user", 'Right UserId, 'Left "filter"]
-       'True
-       Ae.Value
-       PutFilterRespKey
   ClientServerRoute_Join
     :: ClientServerRoute
        "PUT"
@@ -360,23 +363,6 @@ data Event c = Event
 instance FromJSON c => FromJSON (Event c) where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON c => ToJSON (Event c) where
-  toJSON = genericToJSON aesonOptions
-
---------------------------------------------------------------------------------
-
-data PutFilterRespKey :: Type -> Type where
-  PutFilterRespKey_Valid :: PutFilterRespKey PutFilterResponse
-  PutFilterRespKey_Invalid :: PutFilterRespKey Ae.Value
-
-data PutFilterResponse = PutFilterResponse {}
-  deriving (Eq, Ord, Show, Generic)
-
-data Filter = Filter ()
-  deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON Filter where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON Filter where
   toJSON = genericToJSON aesonOptions
 
 --------------------------------------------------------------------------------
