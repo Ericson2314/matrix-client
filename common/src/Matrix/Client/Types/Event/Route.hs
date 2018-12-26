@@ -39,45 +39,45 @@ data EventRoute :: Route where
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "event", 'Right EventId ]
        'True
-       () --GetRoomEventRequest
-       SyncRespKey --GetRoomEventRespKey
+       GetRoomEventRequest
+       GetRoomEventRespKey
   EventRoute_GetRoomStateAt
-    :: (HasRoomEventMeta meta, HasStateEventMeta meta)
+    :: IsRoomStateEvent meta body
     => EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)), 'Right StateKey ]
        'True
-       body --GetRoomStateAtRequest
-       SyncRespKey --GetRoomStateAtRespKey
+       GetRoomStateRequest
+       (GetRoomStateRespKey body)
   EventRoute_GetRoomStateCurrent
-    :: (HasRoomEventMeta meta, HasStateEventMeta meta)
+    :: IsRoomStateEvent meta body
     => EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)) ]
        'True
-       body --GetRoomStateCurrentRequest
-       SyncRespKey --GetRoomStateCurrentRespKey
+       GetRoomStateRequest
+       (GetRoomStateRespKey body)
   EventRoute_GetRoomStateAll
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "state" ]
        'True
-       () --GetRoomStateAllRequest
-       SyncRespKey --GetRoomStateAllRespKey
+       GetRoomStateAllRequest
+       GetRoomStateAllRespKey
   EventRoute_GetRoomMembers
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "members" ]
        'True
-       () --GetRoomMembersRequest
-       SyncRespKey --GetRoomMembersRespKey
+       GetRoomMembersRequest
+       GetRoomMembersRespKey
   EventRoute_GetRoomJoinedMembers
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "joined_members" ]
        'True
-       () --GetRoomJoinedMembersRequest
-       SyncRespKey --GetRoomJoinedMembersRespKey
+       GetRoomJoinedMembersRequest
+       GetRoomJoinedMembersRespKey
   EventRoute_GetRoomMessages
     :: EventRoute
        'GET
@@ -86,7 +86,7 @@ data EventRoute :: Route where
        () --GetRoomMessagesRequest
        SyncRespKey --GetRoomMessagesRespKey
   EventRoute_PutRoomStateAt
-    :: (HasRoomEventMeta meta, HasStateEventMeta meta)
+    :: IsRoomStateEvent meta body
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)), 'Right StateKey ]
@@ -94,7 +94,7 @@ data EventRoute :: Route where
        () --PutRoomStateAtRequest
        SyncRespKey --PutRoomStateAtRespKey
   EventRoute_PutRoomStateCurrent
-    :: (HasRoomEventMeta meta, HasStateEventMeta meta)
+    :: IsRoomStateEvent meta body
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)) ]
@@ -102,7 +102,7 @@ data EventRoute :: Route where
        () --PutRoomStateCurrentRequest
        SyncRespKey --PutRoomStateCurrentRespKey
   EventRoute_PutRoom
-    :: HasRoomEventMeta meta
+    :: IsRoomEvent meta body
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "send", 'Right (EventType '(meta, body)), 'Right TxnId ]
@@ -110,7 +110,7 @@ data EventRoute :: Route where
        () --PutRoomRequest
        SyncRespKey --PutRoomRespKey
   EventRoute_PutRoomRedact
-    :: HasRoomEventMeta meta
+    :: IsRoomEvent meta body
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "redact", 'Right (EventType '(meta, body)), 'Right TxnId ]
@@ -246,7 +246,7 @@ instance ToJSON InviteState where
 
 -- | All fields REQUIRED
 data StrippedState = StrippedState
-  { _strippedState_content :: EventContent
+  { _strippedState_content :: () -- TODO work in with Event abstractions
   , _strippedState_state_key :: Text
   , _strippedState_type :: Text
   , _strippedState_sender :: Text
@@ -308,10 +308,120 @@ instance ToJSON AccountData where
 
 --------------------------------------------------------------------------------
 
+data GetRoomEventRespKey :: Type -> Type where
+  GetRoomEventRespKey_200 :: GetRoomEventRespKey RoomEvent
+  GetRoomEventRespKey_404 :: GetRoomEventRespKey Data.Aeson.Value
+
+data GetRoomEventRequest = GetRoomEventRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomEventRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomEventRequest where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomStateRespKey :: Type -> Type -> Type where
+  GetRoomStateRespKey_200 :: GetRoomStateRespKey body body
+  GetRoomStateRespKey_403 :: GetRoomStateRespKey body Data.Aeson.Value
+  GetRoomStateRespKey_404 :: GetRoomStateRespKey body Data.Aeson.Value
+
+data GetRoomStateRequest = GetRoomStateRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomStateRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomStateRequest where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomStateAllRespKey :: Type -> Type where
+  GetRoomStateAllRespKey_200 :: GetRoomStateAllRespKey [RoomStateEvent]
+  GetRoomStateAllRespKey_403 :: GetRoomStateAllRespKey Data.Aeson.Value
+
+data GetRoomStateAllRequest = GetRoomStateAllRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomStateAllRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomStateAllRequest where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomMembersRespKey :: Type -> Type where
+  GetRoomMembersRespKey_200 :: GetRoomMembersRespKey GetRoomMembersResponse
+  GetRoomMembersRespKey_403 :: GetRoomMembersRespKey Data.Aeson.Value
+
+data GetRoomMembersRequest = GetRoomMembersRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomMembersRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMembersRequest where
+  toJSON = genericToJSON aesonOptions
+
+data GetRoomMembersResponse = GetRoomMembersResponse
+  { _getRoomMembersResponse_chunk :: [MemberEvent]
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomMembersResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMembersResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomJoinedMembersRespKey :: Type -> Type where
+  GetRoomJoinedMembersRespKey_200 :: GetRoomJoinedMembersRespKey GetRoomJoinedMembersResponse
+  GetRoomJoinedMembersRespKey_403 :: GetRoomJoinedMembersRespKey Data.Aeson.Value
+
+data GetRoomJoinedMembersRequest = GetRoomJoinedMembersRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomJoinedMembersRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomJoinedMembersRequest where
+  toJSON = genericToJSON aesonOptions
+
+data GetRoomJoinedMembersResponse = GetRoomJoinedMembersResponse
+  { _getRoomJoinedMembersResponse_joined :: Map UserId RoomMember
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomJoinedMembersResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomJoinedMembersResponse where
+  toJSON = genericToJSON aesonOptions
+
+data RoomMember = RoomMember
+  { _roomMember_displayName :: Text
+  , _roomMember_avatarUrl :: MatrixUri
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON RoomMember where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON RoomMember where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+
 join <$> traverse deriveArgDict
   [ ''SyncRespKey
+  , ''GetRoomEventRespKey
+  -- , ''GetRoomStateRespKey -- TODO scoping but in `deriveArgDict`
+  , ''GetRoomStateAllRespKey
+  , ''GetRoomMembersRespKey
+  , ''GetRoomJoinedMembersRespKey
   ]
 
 join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
   [ ''SyncRequest, ''SyncResponse
+  , ''GetRoomEventRequest
+  , ''GetRoomStateRequest
+  , ''GetRoomStateAllRequest
+  , ''GetRoomMembersRequest
+  , ''GetRoomJoinedMembersRequest
   ]

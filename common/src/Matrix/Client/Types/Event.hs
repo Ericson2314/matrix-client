@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeInType #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Matrix.Client.Types.Event where
 
 import           Control.Lens hiding ((.=), (%~))
@@ -30,16 +31,23 @@ import           GHC.TypeLits
 import           Data.DependentXhr
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
+import           Matrix.Client.Types.Event.Abstract
 
 --------------------------------------------------------------------------------
 
-data EventType :: (Type, Type) -> Type where
-  EventType_Unknown :: [Text] -> EventType '(Ae.Object, Ae.Object)
-  --deriving (Eq, Ord, Show, Generic)
+data EventType :: EventTypeKind where
+  -- | Any unknown event type
+  EventType_Unknown
+    :: [Text]
+    -> EventType '(Ae.Object, Ae.Object)
+  EventType_Room
+    :: RoomEventType tys
+    -> EventType tys
 
-deriveGEq ''EventType
-deriveGCompare ''EventType
-deriveGShow ''EventType
+deriving instance Eq (EventType a)
+deriving instance Ord (EventType a)
+deriving instance Show (EventType a)
+--deriving instance Generic (EventType a)
 
 instance ToRoutePiece (EventType '(meta, body)) where
   toRoute = \case
@@ -50,17 +58,13 @@ instance ToJSON (EventType '(meta, body)) where
 instance FromJSON (EventType '(meta, body)) where
   parseJSON = undefined -- TOOD
 
+type DefiniteEvent = DefiniteEventAbstract EventType
+
+type Event' = EventAbstract EventType
+
 --------------------------------------------------------------------------------
 
--- | The instance for arbitrary 'Some f' because the GADTs JSON forms may not be
--- disjoint.
-newtype SomeEventType = SomeEventType (Some EventType)
-  deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON SomeEventType where
-  parseJSON = undefined -- TODO
-instance ToJSON SomeEventType where
-  toJSON = undefined -- TODO
+type Event = Event' Unconstrained
 
 --------------------------------------------------------------------------------
 
@@ -73,9 +77,9 @@ newtype StateKey = StateKey { getStateKey :: Text }
 
 data UnsignedData = UnsignedData
   { _unsignedData_age :: Int64 -- documented to maybe be negative
-  , _unsignedData_redactedBecause :: Event -- enphasized Optional
+  , _unsignedData_redactedBecause :: RedactionEvent -- enphasized Optional
   , _unsignedData_transactionId :: Text
-  } deriving ({-Eq, Ord, Show,-} Generic)
+  } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON UnsignedData where
   parseJSON = genericParseJSON aesonOptions
@@ -84,19 +88,107 @@ instance ToJSON UnsignedData where
 
 --------------------------------------------------------------------------------
 
-data EventContent = EventContent
-  { _eventContent_avatar_url :: MatrixUri
-  , _eventContent_displayname :: Maybe Text
-  , _eventContent_membership :: Membership
-  , _eventContent_isDirect :: Bool
-  , _eventContent_thirdPartyInvite :: Invite
-  , _eventContent_unsigned ::UnsignedData
-  } deriving ({-Eq, Ord, Show,-} Generic)
+data StateEventMeta body = StateEventMeta
+  { _stateEventMeta_stateKey :: StateKey -- REQUIRED
+  , _stateEventMeta_eventId :: EventId -- REQUIRED
+  , _stateEventMeta_sender :: Text -- REQUIRED
+  , _stateEventMeta_originServerAs :: Int32 -- REQUIRED
+  , _stateEventMeta_unsigned :: Maybe UnsignedData -- REQUIRED
+  , _stateEventMeta_prevContent :: Maybe body -- REQUIRED
+  } deriving (Eq, Ord, Show, Generic)
 
-instance FromJSON EventContent where
+-- TODO Finish manually expanding to get around staging restriction. See
+-- https://ghc.haskell.org/trac/ghc/ticket/12034 for detail.
+class HasStateEventMeta body meta
+instance HasStateEventMeta body (StateEventMeta body)
+-- makeClassy ''StateEventMeta
+
+instance FromJSON body => FromJSON (StateEventMeta body) where
   parseJSON = genericParseJSON aesonOptions
-instance ToJSON EventContent where
+instance ToJSON body => ToJSON (StateEventMeta body) where
   toJSON = genericToJSON aesonOptions
+
+class HasStateEventMeta body meta => IsStateEvent meta body
+instance HasStateEventMeta body meta => IsStateEvent meta body
+
+type StateEvent = Event' HasStateEventMeta
+
+--------------------------------------------------------------------------------
+
+data RoomEventMeta = RoomEventMeta
+  { _roomEventMeta_eventId :: EventId -- REQUIRED
+  , _roomEventMeta_sender :: Text -- REQUIRED
+  , _roomEventMeta_unsigned :: UnsignedData -- REQUIRED
+  } deriving (Eq, Ord, Show, Generic)
+
+-- TODO finish expanding for reasons described above
+class HasRoomEventMeta meta
+instance HasRoomEventMeta RoomEventMeta
+-- makeClassy ''RoomEventMeta
+
+instance FromJSON RoomEventMeta where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON RoomEventMeta where
+  toJSON = genericToJSON aesonOptions
+
+class HasRoomEventMeta meta => IsRoomEvent meta body
+instance HasRoomEventMeta meta => IsRoomEvent meta body
+
+type RoomEvent = Event' IsRoomEvent
+
+--------------------------------------------------------------------------------
+
+data RoomEventType :: EventTypeKind where
+  -- | m.room.member
+  RoomEventType_Member
+    :: RoomEventType
+       '( MemberEventMeta
+        , MemberEventContent)
+  -- | m.room.redaction
+  RoomEventType_Redaction
+    :: RoomEventType
+       '( RedactionEventMeta
+        , RedactionEventContent)
+
+deriving instance Eq (RoomEventType a)
+deriving instance Ord (RoomEventType a)
+deriving instance Show (RoomEventType a)
+--deriving instance Generic (RoomEventType a)
+
+--------------------------------------------------------------------------------
+
+data MemberEventContent = MemberEventContent
+  { _memberEventContent_avatar_url :: MatrixUri
+  , _memberEventContent_displayname :: Maybe Text
+  , _memberEventContent_membership :: Membership
+  , _memberEventContent_isDirect :: Bool
+  , _memberEventContent_thirdPartyInvite :: Invite
+  , _memberEventContent_unsigned :: UnsignedData
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON MemberEventContent where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON MemberEventContent where
+  toJSON = genericToJSON aesonOptions
+
+type MemberEventMeta = (RoomEventMeta, StateEventMeta MemberEventContent)
+
+type MemberEvent = DefiniteEvent MemberEventContent MemberEventMeta
+
+--------------------------------------------------------------------------------
+
+data RedactionEventContent = RedactionEventContent
+  { _redactionEventContent_reason :: Text
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON RedactionEventContent where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON RedactionEventContent where
+  toJSON = genericToJSON aesonOptions
+
+type RedactionEventMeta = (RoomEventMeta, StateEventMeta RedactionEventContent)
+
+type RedactionEvent = DefiniteEvent RedactionEventContent RedactionEventMeta
 
 --------------------------------------------------------------------------------
 
@@ -148,72 +240,38 @@ newtype Signatures = Signatures (Map Text (Map Text Text))
 
 --------------------------------------------------------------------------------
 
-data DefiniteEvent meta body = DefiniteEvent
-  { _definiteEvent_content :: body
-  , _definiteEvent_type :: EventType '(meta, body)
-  , _definiteEvent_extraFields :: meta
-  } deriving ({-Eq, Ord, Show,-} Generic)
+-- TODO but can I properly eliminate this to recover
+class (IsRoomEvent meta body, IsStateEvent meta body)
+  => IsRoomStateEvent meta body
+instance (IsRoomEvent meta body, IsStateEvent meta body)
+  => IsRoomStateEvent meta body
 
-data Event' ctr = forall meta body. Event'
-  { _event_event :: DefiniteEvent meta body
-  , _event_constraint :: Dict (ctr meta)
-  } --deriving (Eq, Ord, Show)
-
-instance FromJSON (Event' ctr) where
-  parseJSON = undefined -- TODO
-instance ToJSON (Event' ctr) where
-  toJSON = undefined -- TODO
-
---------------------------------------------------------------------------------
-
-class Unconstrained a
-instance Unconstrained a
-
-type Event = Event' Unconstrained
-
---------------------------------------------------------------------------------
-
-data StateEventMeta = StateEventMeta
-  { _stateEventMeta_stateKey :: StateKey -- REQUIRED
-  , _stateEventMeta_eventId :: EventId -- REQUIRED
-  , _stateEventMeta_sender :: Text -- REQUIRED
-  , _stateEventMeta_originServerAs :: Int32 -- REQUIRED
-  , _stateEventMeta_unsigned :: Maybe UnsignedData -- REQUIRED
-  , _stateEventMeta_prevContent :: Maybe EventContent -- REQUIRED
-  } deriving ({-Eq, Ord, Show,-} Generic)
-
-makeClassy ''StateEventMeta
-
-instance FromJSON StateEventMeta where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON StateEventMeta where
-  toJSON = genericToJSON aesonOptions
-
-type StateEvent = Event' HasStateEventMeta
-
---------------------------------------------------------------------------------
-
-data RoomEventMeta = RoomEventMeta
-  { _roomEventMeta_eventId :: EventId -- REQUIRED
-  , _roomEventMeta_sender :: Text -- REQUIRED
-  , _roomEventMeta_unsigned :: UnsignedData -- REQUIRED
-  } deriving ({-Eq, Ord, Show,-} Generic)
-
-makeClassy ''RoomEventMeta
-
-instance FromJSON RoomEventMeta where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON RoomEventMeta where
-  toJSON = genericToJSON aesonOptions
-
-type RoomEvent = Event' HasRoomEventMeta
+type RoomStateEvent = Event' IsRoomStateEvent
 
 --------------------------------------------------------------------------------
 
 join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
   [ ''UnsignedData
-  , ''EventContent
+  , ''MemberEventContent
   , ''Invite
-  , ''DefiniteEvent
-  , ''Event'
   ]
+
+deriveGEq ''EventType
+deriveGCompare ''EventType
+deriveGShow ''EventType
+
+deriveGEq ''RoomEventType
+deriveGCompare ''RoomEventType
+deriveGShow ''RoomEventType
+
+--------------------------------------------------------------------------------
+
+-- | The instance for arbitrary 'Some f' because the GADTs JSON forms may not be
+-- disjoint.
+newtype SomeEventType = SomeEventType (Some EventType)
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON SomeEventType where
+  parseJSON = undefined -- TODO
+instance ToJSON SomeEventType where
+  toJSON = undefined -- TODO
