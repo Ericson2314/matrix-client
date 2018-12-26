@@ -83,8 +83,8 @@ data EventRoute :: Route where
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "messages" ]
        'True
-       () --GetRoomMessagesRequest
-       SyncRespKey --GetRoomMessagesRespKey
+       GetRoomMessagesRequest
+       GetRoomMessagesRespKey
   EventRoute_PutRoomStateAt
     :: IsRoomStateEvent meta body
     => EventRoute
@@ -407,6 +407,30 @@ instance ToJSON RoomMember where
 
 --------------------------------------------------------------------------------
 
+data GetRoomMessagesRespKey :: Type -> Type where
+  GetRoomMessagesRespKey_200 :: GetRoomMessagesRespKey GetRoomMessagesResponse
+  GetRoomMessagesRespKey_403 :: GetRoomMessagesRespKey Data.Aeson.Value
+
+data GetRoomMessagesRequest = GetRoomMessagesRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomMessagesRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMessagesRequest where
+  toJSON = genericToJSON aesonOptions
+
+data GetRoomMessagesResponse = GetRoomMessagesResponse
+  { _getRoomMessagesResponse_start :: Text
+  , _getRoomMessagesResponse_end :: Text
+  , _getRoomMessagesResponse_chunk :: [RoomEvent]
+  } deriving ({-Eq, Ord, Show,-} Generic)
+
+instance FromJSON GetRoomMessagesResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMessagesResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
 
 join <$> traverse deriveArgDict
   [ ''SyncRespKey
