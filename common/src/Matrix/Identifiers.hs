@@ -141,6 +141,64 @@ instance FromJSONKey UserId where
 
 --------------------------------------------------------------------------------
 
+newtype RoomName = RoomName { getRoomName :: Text }
+  deriving (Eq, Ord, Show, Generic)
+
+printRoomName :: RoomName -> Text
+printRoomName = getRoomName
+
+-- | TODO find right grammar for this.
+parseRoomName :: Parser RoomName
+parseRoomName = fmap RoomName $ takeWhile1 $ \c -> isDigit c
+  || (ord c >= 0x61 && ord c <= 0x7A)
+  || elem c ['-', '.', '=', '_', '/']
+
+instance ToRoutePiece RoomName where
+  toRoute = printRoomName
+
+instance ToJSON RoomName where
+  toJSON sn = toJSON $ printRoomName sn
+instance ToJSONKey RoomName where
+  toJSONKey = toJSONKeyText printRoomName
+instance FromJSON RoomName where
+  parseJSON = withText "user ID" $ runParserJson parseRoomName
+instance FromJSONKey RoomName where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseRoomName
+
+--------------------------------------------------------------------------------
+
+data RoomAlias = RoomAlias
+  { _userAlias_username :: RoomName
+  , _userAlias_domain :: ServerName
+  }
+  deriving (Eq, Ord, Show, Generic)
+makeLenses ''RoomAlias
+
+printRoomAlias :: RoomAlias -> Text
+printRoomAlias (RoomAlias u d) = "#" <> printRoomName u <> ":" <> printServerName d
+
+parseRoomAlias :: Parser RoomAlias
+parseRoomAlias = do
+  _ <- char '#'
+  u <- parseRoomName
+  _ <- char ':'
+  sn <- parseServerName
+  pure $ RoomAlias u sn
+
+instance ToRoutePiece RoomAlias where
+  toRoute = printRoomAlias
+
+instance ToJSON RoomAlias where
+  toJSON sn = toJSON $ printRoomAlias sn
+instance ToJSONKey RoomAlias where
+  toJSONKey = toJSONKeyText printRoomAlias
+instance FromJSON RoomAlias where
+  parseJSON = withText "user ID" $ runParserJson parseRoomAlias
+instance FromJSONKey RoomAlias where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseRoomAlias
+
+--------------------------------------------------------------------------------
+
 data RoomId = RoomId
   { _roomId_opaque :: Text
   , _roomId_domain :: ServerName

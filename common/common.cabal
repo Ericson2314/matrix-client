@@ -28,6 +28,7 @@ library
     Matrix.Client.Types.Event
     Matrix.Client.Types.Event.Abstract
     Matrix.Client.Types.Event.Route
+    Matrix.Client.Types.Rooms
     Matrix.Identifiers
 
   other-modules:

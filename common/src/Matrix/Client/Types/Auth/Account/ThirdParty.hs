@@ -73,6 +73,7 @@ instance ToJSON ThirdPartyIdentifier where
 
 --------------------------------------------------------------------------------
 
+-- TODO make GADT to enforce the address fields being of the right type.
 data ThirdPartyMedium
   = ThirdPartyMedium_Email
   | ThirdPartyMedium_msisdn

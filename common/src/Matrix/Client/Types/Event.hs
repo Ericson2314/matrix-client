@@ -192,6 +192,18 @@ type RedactionEvent = DefiniteEvent RedactionEventContent RedactionEventMeta
 
 --------------------------------------------------------------------------------
 
+-- TODO flesh out
+data PowerLevelEventContent = PowerLevelEventContent
+ { _powerLevelEventContent_ban :: Maybe Word32 -- TODO width
+ } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON PowerLevelEventContent where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON PowerLevelEventContent where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
 data Membership
   = Membership_Invite
   | Membership_Join
@@ -223,7 +235,7 @@ instance ToJSON Invite where
 data Signed = Signed
   { _signed_mxid :: Text
   , _signed_signatures :: Signatures
-  , _signed_token :: Text
+  , _signed_token :: StateKey
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON Signed where

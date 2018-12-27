@@ -190,7 +190,7 @@ handleLocalFrontendRequest k c = \case
           MM.singleton uid' $ Identity $ First $ Just newValue
         pure $ Right $ r ^. loginResponse_accessToken
   FrontendRequest_JoinRoom hs token room -> do
-    performRoutedRequest ClientServerRoute_Join hs token JoinRequest room $ cvtE $ \sentinal r -> case sentinal of
+    performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hs token (JoinRequest Nothing) room $ cvtE $ \sentinal r -> case sentinal of
       JoinRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_200 -> do

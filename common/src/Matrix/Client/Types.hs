@@ -10,6 +10,7 @@ module Matrix.Client.Types
   , module Matrix.Client.Types.Filter
   , module Matrix.Client.Types.Event
   , module Matrix.Client.Types.Event.Route
+  , module Matrix.Client.Types.Room
   ) where
 
 import           Control.Lens hiding ((.=))
@@ -38,6 +39,7 @@ import           Matrix.Client.Types.Auth.Account
 import           Matrix.Client.Types.Filter
 import           Matrix.Client.Types.Event
 import           Matrix.Client.Types.Event.Route
+import           Matrix.Client.Types.Room
 
 --------------------------------------------------------------------------------
 
@@ -77,59 +79,11 @@ data ClientServerRoute :: Route where
        needsAuth
        request
        respPerCode
-  ClientServerRoute_Join
-    :: ClientServerRoute
-       'PUT
-       ['Left "_matrix", 'Left "client", 'Left "r0", 'Left "rooms", 'Right RoomId, 'Left "join"]
-       'True
-       JoinRequest
-       JoinRespKey
-
---------------------------------------------------------------------------------
-
-data JoinRespKey :: RespRelation where
-  JoinRespKey_200 :: JoinRespKey 200 JoinResponse
-  JoinRespKey_403 :: JoinRespKey 403 Ae.Value
-  JoinRespKey_429 :: JoinRespKey 429 Ae.Value
-
-instance DecidablableLookup JoinRespKey where
-  -- TODO handle other cases, make some TH for this.
-  liftedLookup
-    :: forall status
-    .  KnownNat status
-    => Decision (Some (JoinRespKey status))
-  liftedLookup = case
-      sameNat (Proxy :: Proxy status)
-              (Proxy :: Proxy 200)
-    of
-      Just Refl -> Proved $ This JoinRespKey_200
-
-data JoinRequest = JoinRequest
-  { -- _joinResponse_thirdPartyId :: ThirdPartyId
-  }
-  deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON JoinRequest where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON JoinRequest where
-  toJSON = genericToJSON aesonOptions
-
-data JoinResponse = JoinResponse
-  { _joinResponse_roomId :: RoomId
-  }
-  deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON JoinResponse where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON JoinResponse where
-  toJSON = genericToJSON aesonOptions
-
---------------------------------------------------------------------------------
-
-join <$> traverse (deriveArgDict)
-  [ ''JoinRespKey
-  ]
-
-join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
-  [ ''JoinRequest, ''JoinResponse
-  ]
+  ClientServerRoute_Room
+    :: RoomRoute httpType route needsAuth request respPerCode
+    -> ClientServerRoute
+       httpType
+       (Prefix route)
+       needsAuth
+       request
+       respPerCode
