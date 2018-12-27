@@ -91,32 +91,32 @@ data EventRoute :: Route where
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)), 'Right StateKey ]
        'True
-       () --PutRoomStateAtRequest
-       SyncRespKey --PutRoomStateAtRespKey
+       body
+       PutRoomRespKey
   EventRoute_PutRoomStateCurrent
     :: IsRoomStateEvent meta body
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)) ]
        'True
-       () --PutRoomStateCurrentRequest
-       SyncRespKey --PutRoomStateCurrentRespKey
+       body
+       PutRoomRespKey
   EventRoute_PutRoom
     :: IsRoomEvent meta body
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "send", 'Right (EventType '(meta, body)), 'Right TxnId ]
        'True
-       () --PutRoomRequest
-       SyncRespKey --PutRoomRespKey
-  EventRoute_PutRoomRedact
+       body
+       PutRoomRespKey
+  EventRoute_PutRoomRedaction
     :: IsRoomEvent meta body
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "redact", 'Right (EventType '(meta, body)), 'Right TxnId ]
        'True
-       () --PutRoomRequestRedact
-       SyncRespKey --PutRoomRespKeyRedact
+       RedactionEventContent
+       PutRoomRedactionRespKey
 
 --------------------------------------------------------------------------------
 
@@ -429,6 +429,26 @@ instance FromJSON GetRoomMessagesResponse where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON GetRoomMessagesResponse where
   toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data PutRoomRespKey :: Type -> Type where
+  PutRoomRespKey_200 :: PutRoomRespKey PutRoomResponse
+  PutRoomRespKey_403 :: PutRoomRespKey Data.Aeson.Value
+
+data PutRoomResponse = PutRoomResponse
+  { _putRoomResponse_eventId :: EventId
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON PutRoomResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON PutRoomResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data PutRoomRedactionRespKey :: Type -> Type where
+  PutRoomRedactionRespKey_200 :: PutRoomRedactionRespKey PutRoomResponse
 
 --------------------------------------------------------------------------------
 
