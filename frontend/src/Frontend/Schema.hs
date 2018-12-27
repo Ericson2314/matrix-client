@@ -8,13 +8,14 @@ import Database.Beam.Migrate
 import Database.Beam.Sqlite
 import Obelisk.Database.Beam.Entity
 
+import qualified Matrix.Identifiers as M
+
 import Database.Beam.Matrix.Orphans ()
-import qualified Matrix.Client.Types as M
---import qualified Matrix.Identifiers as M
+import Data.DependentXhr
 
 data Login f = Login
   { _login_homeServer :: Columnar f Text
-  , _login_accessToken :: Columnar (Nullable f) Text
+  , _login_accessToken :: Columnar (Nullable f) AccessToken
   , _login_deviceId :: Columnar (Nullable f) M.DeviceId
   , _login_isActive :: Columnar f Bool
   } deriving (Generic, Beamable)
@@ -23,7 +24,7 @@ makeLenses ''Login
 
 -- Until https://github.com/tathougies/beam/issues/262 is resolved, this is too
 -- annoying.
-type instance Key Login = Id Text --M.UserId
+type instance Key Login = Id Text -- M.UserId
 
 data Db f = Db
   { dbLogin :: f (TableEntity (Entity Login))

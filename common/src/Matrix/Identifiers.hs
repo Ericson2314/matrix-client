@@ -11,6 +11,7 @@ import           Data.Char
 import           Data.List.NonEmpty (NonEmpty(..))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Data.DependentXhr (ToRoutePiece (..))
 import           Data.Word
 import           GHC.Generics
 import           Net.IPv4
@@ -40,6 +41,9 @@ parseHost = ipv4address <|> (char '[' *> ipv6address <* char ']' ) <|> dnsName
       bs <- some (char '.' *> bit)
       pure $ b :| bs
 
+instance ToRoutePiece Host where
+  toRoute = toRoute
+
 --------------------------------------------------------------------------------
 
 data ServerName = ServerName
@@ -66,6 +70,9 @@ runParserJson p t = case parseOnly p t of
   Left e -> fail e
   Right sn -> pure sn
 
+instance ToRoutePiece ServerName where
+  toRoute = printServerName
+
 instance ToJSON ServerName where
   toJSON = toJSON . printServerName
 instance ToJSONKey ServerName where
@@ -88,6 +95,18 @@ parseUserName = fmap UserName $ takeWhile1 $ \c -> isDigit c
   || (ord c >= 0x61 && ord c <= 0x7A)
   || elem c ['-', '.', '=', '_', '/']
 
+instance ToRoutePiece UserName where
+  toRoute = printUserName
+
+instance ToJSON UserName where
+  toJSON sn = toJSON $ printUserName sn
+instance ToJSONKey UserName where
+  toJSONKey = toJSONKeyText printUserName
+instance FromJSON UserName where
+  parseJSON = withText "user ID" $ runParserJson parseUserName
+instance FromJSONKey UserName where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseUserName
+
 --------------------------------------------------------------------------------
 
 data UserId = UserId
@@ -108,11 +127,90 @@ parseUserId = do
   sn <- parseServerName
   pure $ UserId u sn
 
+instance ToRoutePiece UserId where
+  toRoute = printUserId
+
 instance ToJSON UserId where
   toJSON sn = toJSON $ printUserId sn
 instance ToJSONKey UserId where
   toJSONKey = toJSONKeyText printUserId
 instance FromJSON UserId where
-  parseJSON = withText "server name" $ runParserJson parseUserId
+  parseJSON = withText "user ID" $ runParserJson parseUserId
 instance FromJSONKey UserId where
   fromJSONKey = FromJSONKeyTextParser $ runParserJson parseUserId
+
+--------------------------------------------------------------------------------
+
+data RoomId = RoomId
+  { _roomId_opaque :: Text
+  , _roomId_domain :: ServerName
+  }
+  deriving (Eq, Ord, Show, Generic)
+makeLenses ''RoomId
+
+printRoomId :: RoomId -> Text
+printRoomId (RoomId u d) = "@" <> u <> ":" <> printServerName d
+
+parseRoomId :: Parser RoomId
+parseRoomId = do
+  _ <- char '!'
+  u <- takeWhile1 (/= ':')
+  _ <- char ':'
+  sn <- parseServerName
+  pure $ RoomId u sn
+
+instance ToRoutePiece RoomId where
+  toRoute = printRoomId
+
+instance ToJSON RoomId where
+  toJSON sn = toJSON $ printRoomId sn
+instance ToJSONKey RoomId where
+  toJSONKey = toJSONKeyText printRoomId
+instance FromJSON RoomId where
+  parseJSON = withText "room ID" $ runParserJson parseRoomId
+instance FromJSONKey RoomId where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseRoomId
+
+--------------------------------------------------------------------------------
+
+data EventId = EventId
+  { _eventId_opaque :: Text
+  , _eventId_domain :: ServerName
+  }
+  deriving (Eq, Ord, Show, Generic)
+makeLenses ''EventId
+
+printEventId :: EventId -> Text
+printEventId (EventId u d) = "@" <> u <> ":" <> printServerName d
+
+parseEventId :: Parser EventId
+parseEventId = do
+  _ <- char '!'
+  u <- takeWhile1 (/= ':')
+  _ <- char ':'
+  sn <- parseServerName
+  pure $ EventId u sn
+
+instance ToRoutePiece EventId where
+  toRoute = printEventId
+
+instance ToJSON EventId where
+  toJSON sn = toJSON $ printEventId sn
+instance ToJSONKey EventId where
+  toJSONKey = toJSONKeyText printEventId
+instance FromJSON EventId where
+  parseJSON = withText "room ID" $ runParserJson parseEventId
+instance FromJSONKey EventId where
+  fromJSONKey = FromJSONKeyTextParser $ runParserJson parseEventId
+
+--------------------------------------------------------------------------------
+
+newtype DeviceId = DeviceId { unDeviceId :: Text }
+  deriving (Eq, Ord, Show, Generic)
+  deriving newtype (FromJSON, ToJSON)
+
+--------------------------------------------------------------------------------
+
+newtype TxnId = TxnId { unTxnId :: Text }
+  deriving (Eq, Ord, Show, Generic)
+  deriving newtype (FromJSON, ToJSON)

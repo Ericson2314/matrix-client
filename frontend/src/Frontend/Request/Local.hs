@@ -1,10 +1,11 @@
+{-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecursiveDo #-}
 module Frontend.Request.Local where
 
 import           Control.Concurrent
-import           Control.Lens
+import           Control.Lens hiding (has)
 import           Control.Monad
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class
@@ -14,15 +15,11 @@ import           Control.Monad.Primitive
 import           Control.Monad.Ref
 import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
-import           Data.Aeson
-import           Data.ByteString.Lazy (toStrict)
 import           Data.Coerce
 import           Data.Constraint
+import           Data.DependentXhr
 import qualified Data.Map.Monoidal as MM
 import           Data.Semigroup
-import           Data.Text (Text)
-import qualified Data.Text as T
-import           Data.Text.Encoding
 import           Data.Vessel
 import           Database.Beam
 import           Database.Beam.Sqlite
@@ -34,21 +31,14 @@ import           Reflex.Dom.Core hiding (select)
 import           Reflex.Dom.Prerender.Performable
 import           Reflex.Host.Class
 
-import           Matrix.Client.Types
-import           Matrix.Identifiers
+import           Matrix.Client.Types as M hiding (Event)
+import           Matrix.Identifiers as M
 
 import           Frontend.DB
 import           Frontend.Query
 import           Frontend.Request
 import           Frontend.Schema
 
-data XhrResponseParse response error
-  = XhrResponseParse_XhrException XhrException
-  | XhrResponseParse_Success response
-  | XhrResponseParse_Failure error
-  | XhrResponseParse_NoParseSuccess
-  | XhrResponseParse_NoParseFailure
-  deriving (Eq, Ord, Show)
 
 data LocalFrontendRequestContext (t :: *) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
@@ -131,23 +121,44 @@ instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => Monad
       prerenderPerformable @js @(LocalFrontendRequestT t m) blank $
         handleLocalFrontendRequest (const blank) ctx r
 
+-- | Converts an 'XhrResponseParse' to a 'FrontendError'. All the failure cases
+-- are handled in the simplest way possible (pure functional boilerplate), while
+-- the success case is handled via the function parameter.
+convertErrors
+  :: Monad m
+  => (forall r. respPerCode r -> r -> m (Either (FrontendError e) b))
+  -> XhrResponseParse respPerCode
+  -> m (Either (FrontendError e) b)
+convertErrors handleSuccessful = \case
+  Left xhrException ->
+    pure $ Left $ FrontendError_Other $ Left xhrException
+  Right (Left innvalidStatus) ->
+    pure $ Left $ FrontendError_Other $ Right $ Left innvalidStatus
+  Right (Right (XhrThisStatus _ (Left eNoBody))) ->
+    pure $ Left $ FrontendError_Other $ Right $ Right $ Left eNoBody
+  Right (Right (XhrThisStatus _ (Right (Left eBadJson)))) ->
+    pure $ Left $ FrontendError_Other $ Right $ Right $ Right eBadJson
+  Right (Right (XhrThisStatus sentinal (Right (Right r)))) -> handleSuccessful sentinal r
+
 handleLocalFrontendRequest
-  :: (JSConstraints js m)
+  :: forall js m t a
+  .  JSConstraints js m
   => (a -> LoggingT IO ())
   -> LocalFrontendRequestContext t
   -> FrontendRequest a
   -> m ()
 handleLocalFrontendRequest k c = \case
   FrontendRequest_Login hs u pw -> do
-    let logger = _localFrontendRequestContext_logger c
     let loginRequest = LoginRequest
           (UserIdentifier_User u)
           (Login_Password pw)
           Nothing
           Nothing
-    let url = hs <> "/_matrix/client/r0/login"
-    performXhrCallbackWithErrorJSON "POST" url loginRequest $ flip runLoggingT logger . \case
-      XhrResponseParse_Success r -> do
+    performRoutedRequest (ClientServerRoute_Login LoginRoute_Login) hs loginRequest $ cvtE $ \sentinal r -> case sentinal of
+      LoginRespKey_400 -> pure $ Left $ FrontendError_ResponseError r
+      LoginRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
+      LoginRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
+      LoginRespKey_200 -> do
         let uid = r ^. loginResponse_userId
             uid' = Id $ printUserId uid
             newValue = Login
@@ -170,9 +181,25 @@ handleLocalFrontendRequest k c = \case
         -- TODO: Add to V_Logins as well.
         lift $ patchQueryResult c $ singletonV V_Login $ MapV $
           MM.singleton uid' $ Identity $ First $ Just newValue
-        k $ Right ()
-      XhrResponseParse_Failure e -> k $ Left $ FrontendError_ResponseError e
-      r -> k $ Left $ FrontendError_Other $ T.pack $ show r
+        pure $ Right $ r ^. loginResponse_accessToken
+  FrontendRequest_JoinRoom hs token room -> do
+    performRoutedRequest ClientServerRoute_Join hs token JoinRequest room $ cvtE $ \sentinal r -> case sentinal of
+      JoinRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
+      JoinRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
+      JoinRespKey_200 -> do
+        $(logInfo) $ "Sucessfully join room: " <> printRoomId room
+        pure $ Right ()
+  where
+    logger = _localFrontendRequestContext_logger c
+    -- | Arbitrary combinator soup. 'convertErrors' does the bulk of the work; the
+    -- rest here is just whatever happens to be the common pattern for
+    -- `handleLocalFrontendRequest`.
+    cvtE
+      :: forall respPerCode e b.  a ~ Either (FrontendError e) b
+      => (forall r. respPerCode r -> r -> LoggingT IO (Either (FrontendError e) b))
+      -> XhrResponseParse respPerCode
+      -> IO ()
+    cvtE k' = flip runLoggingT logger . (k <=< convertErrors k')
 
 patchQueryResult :: LocalFrontendRequestContext t -> FrontendV Identity -> IO ()
 patchQueryResult c = _localFrontendRequestContext_updateQueryResult c
@@ -194,33 +221,6 @@ withConnectionTransaction c k =
   forM (_localFrontendRequestContext_connection c) $ \mvc -> liftIO $ do
     conn <- readMVar mvc
     Sqlite.withTransaction conn $ k conn
-
-performXhrCallbackWithErrorJSON
-  :: forall js m request response error
-  .  (JSConstraints js m, ToJSON request, FromJSON response, FromJSON error)
-  => Text
-  -> Text
-  -> request
-  -> (XhrResponseParse response error -> IO ())
-  -> m ()
-performXhrCallbackWithErrorJSON method url request k =
-  performRequestCallbackWithError k' $
-    XhrRequest method url $ def & xhrRequestConfig_sendData .~ body
- where
-  body = decodeUtf8 $ toStrict $ Data.Aeson.encode request
-  k' = \case
-    Left e -> k $ XhrResponseParse_XhrException e
-    Right r -> if _xhrResponse_status r >= 200 && _xhrResponse_status r < 400
-      then k $ maybe XhrResponseParse_NoParseSuccess XhrResponseParse_Success $ decodeXhrResponse r
-      else k $ maybe XhrResponseParse_NoParseFailure XhrResponseParse_Failure $ decodeXhrResponse r
-
-performRequestCallbackWithError
-  :: forall m a. (MonadJSM m, HasJSContext m, IsXhrPayload a)
-  => (Either XhrException XhrResponse -> IO ())
-  -> XhrRequest a
-  -> m ()
-performRequestCallbackWithError k req =
-  void $ newXMLHttpRequestWithError req $ liftIO . k
 
 runLocalFrontendRequestT
   :: (Reflex t, MonadFix m, MonadHold t m, TriggerEvent t m, MonadIO m, Prerender js m)

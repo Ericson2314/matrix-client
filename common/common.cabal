@@ -11,6 +11,7 @@ library
                , beam-core
                , beam-migrate
                , ip
+               , megaparsec
                , modern-uri
                , mtl
                , obelisk-route
@@ -20,6 +21,12 @@ library
     Common.Route
     Data.Aeson.Utils
     Matrix.Client.Types
+    Matrix.Client.Types.Auth.Login
+    Matrix.Client.Types.Auth.Account
+    Matrix.Client.Types.Auth.Account.ThirdParty
+    Matrix.Client.Types.Filter
+    Matrix.Client.Types.Event
+    Matrix.Client.Types.Event.Route
     Matrix.Identifiers
 
   other-modules:
