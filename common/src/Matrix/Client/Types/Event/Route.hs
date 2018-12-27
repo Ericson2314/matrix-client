@@ -120,9 +120,8 @@ data EventRoute :: Route where
 
 --------------------------------------------------------------------------------
 
-data SyncRespKey :: Type -> Type where
-  SyncRespKey_Valid :: SyncRespKey SyncResponse
-  SyncRespKey_Invalid :: SyncRespKey Ae.Value
+data SyncRespKey :: RespRelation where
+  SyncRespKey_200 :: SyncRespKey 200 SyncResponse
 
 data Filter'
   = Filter'_Id Text
@@ -308,9 +307,9 @@ instance ToJSON AccountData where
 
 --------------------------------------------------------------------------------
 
-data GetRoomEventRespKey :: Type -> Type where
-  GetRoomEventRespKey_200 :: GetRoomEventRespKey RoomEvent
-  GetRoomEventRespKey_404 :: GetRoomEventRespKey Data.Aeson.Value
+data GetRoomEventRespKey :: RespRelation where
+  GetRoomEventRespKey_200 :: GetRoomEventRespKey 200 RoomEvent
+  GetRoomEventRespKey_404 :: GetRoomEventRespKey 404 Data.Aeson.Value
 
 data GetRoomEventRequest = GetRoomEventRequest
   deriving (Eq, Ord, Show, Generic)
@@ -322,10 +321,10 @@ instance ToJSON GetRoomEventRequest where
 
 --------------------------------------------------------------------------------
 
-data GetRoomStateRespKey :: Type -> Type -> Type where
-  GetRoomStateRespKey_200 :: GetRoomStateRespKey body body
-  GetRoomStateRespKey_403 :: GetRoomStateRespKey body Data.Aeson.Value
-  GetRoomStateRespKey_404 :: GetRoomStateRespKey body Data.Aeson.Value
+data GetRoomStateRespKey :: Type -> RespRelation where
+  GetRoomStateRespKey_200 :: GetRoomStateRespKey body 200 body
+  GetRoomStateRespKey_403 :: GetRoomStateRespKey body 403 Data.Aeson.Value
+  GetRoomStateRespKey_404 :: GetRoomStateRespKey body 404 Data.Aeson.Value
 
 data GetRoomStateRequest = GetRoomStateRequest
   deriving (Eq, Ord, Show, Generic)
@@ -337,9 +336,9 @@ instance ToJSON GetRoomStateRequest where
 
 --------------------------------------------------------------------------------
 
-data GetRoomStateAllRespKey :: Type -> Type where
-  GetRoomStateAllRespKey_200 :: GetRoomStateAllRespKey [RoomStateEvent]
-  GetRoomStateAllRespKey_403 :: GetRoomStateAllRespKey Data.Aeson.Value
+data GetRoomStateAllRespKey :: RespRelation where
+  GetRoomStateAllRespKey_200 :: GetRoomStateAllRespKey 200 [RoomStateEvent]
+  GetRoomStateAllRespKey_403 :: GetRoomStateAllRespKey 403 Data.Aeson.Value
 
 data GetRoomStateAllRequest = GetRoomStateAllRequest
   deriving (Eq, Ord, Show, Generic)
@@ -351,9 +350,9 @@ instance ToJSON GetRoomStateAllRequest where
 
 --------------------------------------------------------------------------------
 
-data GetRoomMembersRespKey :: Type -> Type where
-  GetRoomMembersRespKey_200 :: GetRoomMembersRespKey GetRoomMembersResponse
-  GetRoomMembersRespKey_403 :: GetRoomMembersRespKey Data.Aeson.Value
+data GetRoomMembersRespKey :: RespRelation where
+  GetRoomMembersRespKey_200 :: GetRoomMembersRespKey 200 GetRoomMembersResponse
+  GetRoomMembersRespKey_403 :: GetRoomMembersRespKey 403 Data.Aeson.Value
 
 data GetRoomMembersRequest = GetRoomMembersRequest
   deriving (Eq, Ord, Show, Generic)
@@ -374,9 +373,9 @@ instance ToJSON GetRoomMembersResponse where
 
 --------------------------------------------------------------------------------
 
-data GetRoomJoinedMembersRespKey :: Type -> Type where
-  GetRoomJoinedMembersRespKey_200 :: GetRoomJoinedMembersRespKey GetRoomJoinedMembersResponse
-  GetRoomJoinedMembersRespKey_403 :: GetRoomJoinedMembersRespKey Data.Aeson.Value
+data GetRoomJoinedMembersRespKey :: RespRelation where
+  GetRoomJoinedMembersRespKey_200 :: GetRoomJoinedMembersRespKey 200 GetRoomJoinedMembersResponse
+  GetRoomJoinedMembersRespKey_403 :: GetRoomJoinedMembersRespKey 403 Data.Aeson.Value
 
 data GetRoomJoinedMembersRequest = GetRoomJoinedMembersRequest
   deriving (Eq, Ord, Show, Generic)
@@ -407,9 +406,9 @@ instance ToJSON RoomMember where
 
 --------------------------------------------------------------------------------
 
-data GetRoomMessagesRespKey :: Type -> Type where
-  GetRoomMessagesRespKey_200 :: GetRoomMessagesRespKey GetRoomMessagesResponse
-  GetRoomMessagesRespKey_403 :: GetRoomMessagesRespKey Data.Aeson.Value
+data GetRoomMessagesRespKey :: RespRelation where
+  GetRoomMessagesRespKey_200 :: GetRoomMessagesRespKey 200 GetRoomMessagesResponse
+  GetRoomMessagesRespKey_403 :: GetRoomMessagesRespKey 403 Data.Aeson.Value
 
 data GetRoomMessagesRequest = GetRoomMessagesRequest
   deriving (Eq, Ord, Show, Generic)
@@ -432,9 +431,9 @@ instance ToJSON GetRoomMessagesResponse where
 
 --------------------------------------------------------------------------------
 
-data PutRoomRespKey :: Type -> Type where
-  PutRoomRespKey_200 :: PutRoomRespKey PutRoomResponse
-  PutRoomRespKey_403 :: PutRoomRespKey Data.Aeson.Value
+data PutRoomRespKey :: RespRelation where
+  PutRoomRespKey_200 :: PutRoomRespKey 200 PutRoomResponse
+  PutRoomRespKey_403 :: PutRoomRespKey 403 Data.Aeson.Value
 
 data PutRoomResponse = PutRoomResponse
   { _putRoomResponse_eventId :: EventId
@@ -447,19 +446,22 @@ instance ToJSON PutRoomResponse where
 
 --------------------------------------------------------------------------------
 
-data PutRoomRedactionRespKey :: Type -> Type where
-  PutRoomRedactionRespKey_200 :: PutRoomRedactionRespKey PutRoomResponse
+data PutRoomRedactionRespKey :: RespRelation where
+  PutRoomRedactionRespKey_200 :: PutRoomRedactionRespKey 200 PutRoomResponse
 
 --------------------------------------------------------------------------------
 
-join <$> traverse deriveArgDict
+join <$> traverse (deriveArgDict)
   [ ''SyncRespKey
   , ''GetRoomEventRespKey
-  -- , ''GetRoomStateRespKey -- TODO scoping but in `deriveArgDict`
+  -- , ''GetRoomStateRespKey
   , ''GetRoomStateAllRespKey
   , ''GetRoomMembersRespKey
   , ''GetRoomJoinedMembersRespKey
   ]
+
+-- TODO some scoping error in TH
+-- deriveArgDict' 2 ''GetRoomStateRespKey
 
 join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
   [ ''SyncRequest, ''SyncResponse

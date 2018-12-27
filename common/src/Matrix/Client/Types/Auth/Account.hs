@@ -90,10 +90,10 @@ data AccountRoute :: Route where
 
 --------------------------------------------------------------------------------
 
-data RegisterRespKey :: Type -> Type where
-  RegisterRespKey_200 :: RegisterRespKey RegisterResponse
-  RegisterRespKey_401 :: RegisterRespKey Data.Aeson.Value
-  RegisterRespKey_429 :: RegisterRespKey Data.Aeson.Value
+data RegisterRespKey :: RespRelation where
+  RegisterRespKey_200 :: RegisterRespKey 200 RegisterResponse
+  RegisterRespKey_401 :: RegisterRespKey 401 Data.Aeson.Value
+  RegisterRespKey_429 :: RegisterRespKey 429 Data.Aeson.Value
 
 
 data RegisterRequest = RegisterRequest
@@ -124,9 +124,9 @@ instance ToJSON RegisterResponse where
 
 --------------------------------------------------------------------------------
 
-data DeactivateRespKey :: Type -> Type where
-  DeactivateRespKey_200 :: DeactivateRespKey DeactivateResponse
-  DeactivateRespKey_429 :: DeactivateRespKey Data.Aeson.Value
+data DeactivateRespKey :: RespRelation where
+  DeactivateRespKey_200 :: DeactivateRespKey 200 DeactivateResponse
+  DeactivateRespKey_429 :: DeactivateRespKey 429 Data.Aeson.Value
 
 data DeactivateRequest = DeactivateRequest
   { _deactivateRequest_auth :: AuthenticationData
@@ -147,10 +147,10 @@ instance ToJSON DeactivateResponse where
 
 --------------------------------------------------------------------------------
 
-data AvailableRespKey :: Type -> Type where
-  AvailableRespKey_200 :: AvailableRespKey AvailableResponseAvailable
-  AvailableRespKey_400 :: AvailableRespKey AvailableResponseUnavailable
-  AvailableRespKey_429 :: AvailableRespKey Data.Aeson.Value
+data AvailableRespKey :: RespRelation where
+  AvailableRespKey_200 :: AvailableRespKey 200 AvailableResponseAvailable
+  AvailableRespKey_400 :: AvailableRespKey 400 AvailableResponseUnavailable
+  AvailableRespKey_429 :: AvailableRespKey 429 Data.Aeson.Value
 
 data AvailableRequest = AvailableRequest
   { _availableRequest_username :: UserName
@@ -184,11 +184,11 @@ instance ToJSON AvailableResponseUnavailable where
 
 --------------------------------------------------------------------------------
 
-data WhoAmIRespKey :: Type -> Type where
-  WhoAmIRespKey_200 :: WhoAmIRespKey WhoAmIResponse
-  WhoAmIRespKey_401 :: WhoAmIRespKey Data.Aeson.Value
-  WhoAmIRespKey_403 :: WhoAmIRespKey Data.Aeson.Value
-  WhoAmIRespKey_429 :: WhoAmIRespKey Data.Aeson.Value
+data WhoAmIRespKey :: RespRelation where
+  WhoAmIRespKey_200 :: WhoAmIRespKey 200 WhoAmIResponse
+  WhoAmIRespKey_401 :: WhoAmIRespKey 401 Data.Aeson.Value
+  WhoAmIRespKey_403 :: WhoAmIRespKey 403 Data.Aeson.Value
+  WhoAmIRespKey_429 :: WhoAmIRespKey 429 Data.Aeson.Value
 
 data WhoAmIRequest = WhoAmIRequest
   deriving (Eq, Ord, Show, Generic)
@@ -209,7 +209,7 @@ instance ToJSON WhoAmIResponse where
 
 --------------------------------------------------------------------------------
 
-join <$> traverse deriveArgDict
+join <$> traverse (deriveArgDict)
   [ ''RegisterRespKey
   , ''DeactivateRespKey
   , ''AvailableRespKey

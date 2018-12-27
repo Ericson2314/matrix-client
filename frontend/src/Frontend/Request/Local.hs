@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TypeInType #-}
 module Frontend.Request.Local where
 
 import           Control.Concurrent
@@ -18,12 +19,14 @@ import           Control.Monad.Trans.Reader
 import           Data.Coerce
 import           Data.Constraint
 import           Data.DependentXhr
+import           Data.Kind
 import qualified Data.Map.Monoidal as MM
 import           Data.Semigroup
 import           Data.Vessel
 import           Database.Beam
 import           Database.Beam.Sqlite
 import qualified Database.SQLite.Simple as Sqlite
+import           GHC.TypeLits
 import           Language.Javascript.JSaddle.Types
 import           Obelisk.Database.Beam.Entity
 import           Obelisk.Route.Frontend
@@ -40,7 +43,7 @@ import           Frontend.Request
 import           Frontend.Schema
 
 
-data LocalFrontendRequestContext (t :: *) = LocalFrontendRequestContext
+data LocalFrontendRequestContext (t :: Type) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
   , _localFrontendRequestContext_updateQueryResult :: FrontendV Identity -> IO ()
   , _localFrontendRequestContext_logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
@@ -126,7 +129,11 @@ instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => Monad
 -- the success case is handled via the function parameter.
 convertErrors
   :: Monad m
-  => (forall r. respPerCode r -> r -> m (Either (FrontendError e) b))
+  => (forall status r
+      .  KnownNat status
+      => (respPerCode :: RespRelation) status r
+      -> r
+      -> m (Either (FrontendError e) b))
   -> XhrResponseParse respPerCode
   -> m (Either (FrontendError e) b)
 convertErrors handleSuccessful = \case
@@ -196,7 +203,7 @@ handleLocalFrontendRequest k c = \case
     -- `handleLocalFrontendRequest`.
     cvtE
       :: forall respPerCode e b.  a ~ Either (FrontendError e) b
-      => (forall r. respPerCode r -> r -> LoggingT IO (Either (FrontendError e) b))
+      => (forall s r. KnownNat s => respPerCode s r -> r -> LoggingT IO (Either (FrontendError e) b))
       -> XhrResponseParse respPerCode
       -> IO ()
     cvtE k' = flip runLoggingT logger . (k <=< convertErrors k')

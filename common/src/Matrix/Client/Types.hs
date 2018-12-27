@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeInType #-}
@@ -21,11 +22,14 @@ import           Data.DependentXhr
 import           Data.Kind
 import           Data.Map (Map)
 import qualified Data.Map as Map
+import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)
+import           Data.Type.Equality
 import           Data.Int
 import           Data.Word
 import           GHC.Generics
+import           GHC.TypeLits
 
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
@@ -83,17 +87,22 @@ data ClientServerRoute :: Route where
 
 --------------------------------------------------------------------------------
 
-data JoinRespKey :: Type -> Type where
-  JoinRespKey_200 :: JoinRespKey JoinResponse
-  JoinRespKey_403 :: JoinRespKey Ae.Value
-  JoinRespKey_429 :: JoinRespKey Ae.Value
+data JoinRespKey :: RespRelation where
+  JoinRespKey_200 :: JoinRespKey 200 JoinResponse
+  JoinRespKey_403 :: JoinRespKey 403 Ae.Value
+  JoinRespKey_429 :: JoinRespKey 429 Ae.Value
 
-instance GetStatusKey JoinRespKey where
-  statusMap = Map.fromList
-    [ (200, This JoinRespKey_200)
-    , (403, This JoinRespKey_403)
-    , (429, This JoinRespKey_429)
-    ]
+instance DecidablableLookup JoinRespKey where
+  -- TODO handle other cases, make some TH for this.
+  liftedLookup
+    :: forall status
+    .  KnownNat status
+    => Decision (Some (JoinRespKey status))
+  liftedLookup = case
+      sameNat (Proxy :: Proxy status)
+              (Proxy :: Proxy 200)
+    of
+      Just Refl -> Proved $ This JoinRespKey_200
 
 data JoinRequest = JoinRequest
   { -- _joinResponse_thirdPartyId :: ThirdPartyId
@@ -117,7 +126,7 @@ instance ToJSON JoinResponse where
 
 --------------------------------------------------------------------------------
 
-join <$> traverse deriveArgDict
+join <$> traverse (deriveArgDict)
   [ ''JoinRespKey
   ]
 

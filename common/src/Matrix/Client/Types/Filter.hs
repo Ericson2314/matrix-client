@@ -118,8 +118,8 @@ data FilterRoute :: Route where
 
 --------------------------------------------------------------------------------
 
-data PutFilterRespKey :: Type -> Type where
-  PutFilterRespKey_200 :: PutFilterRespKey PutFilterResponse
+data PutFilterRespKey :: RespRelation where
+  PutFilterRespKey_200 :: PutFilterRespKey 200 PutFilterResponse
 
 type PutFilterRequest = Filter
 
@@ -134,9 +134,9 @@ instance ToJSON PutFilterResponse where
 
 --------------------------------------------------------------------------------
 
-data GetFilterRespKey :: Type -> Type where
-  GetFilterRespKey_200 :: GetFilterRespKey GetFilterResponse
-  GetFilterRespKey_404 :: GetFilterRespKey Ae.Value
+data GetFilterRespKey :: RespRelation where
+  GetFilterRespKey_200 :: GetFilterRespKey 200 GetFilterResponse
+  GetFilterRespKey_404 :: GetFilterRespKey 404 Ae.Value
 
 data GetFilterRequest = GetFilterRequest
   deriving (Eq, Ord, Show, Generic)
@@ -150,7 +150,7 @@ type GetFilterResponse = Filter
 
 --------------------------------------------------------------------------------
 
-join <$> traverse deriveArgDict
+join <$> traverse (deriveArgDict)
   [ ''PutFilterRespKey
   ]
 
