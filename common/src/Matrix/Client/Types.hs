@@ -21,6 +21,7 @@ import           Matrix.Client.Types.Filter
 import           Matrix.Client.Types.Event
 import           Matrix.Client.Types.Event.Route
 import           Matrix.Client.Types.Room
+import           Matrix.Client.Types.UserData
 
 --------------------------------------------------------------------------------
 
@@ -62,6 +63,14 @@ data ClientServerRoute :: Route where
        respPerCode
   ClientServerRoute_Room
     :: RoomRoute httpType route needsAuth request respPerCode
+    -> ClientServerRoute
+       httpType
+       (Prefix route)
+       needsAuth
+       request
+       respPerCode
+  ClientServerRoute_UserData
+    :: UserDataRoute httpType route needsAuth request respPerCode
     -> ClientServerRoute
        httpType
        (Prefix route)
