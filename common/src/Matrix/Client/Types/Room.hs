@@ -10,7 +10,6 @@ import           Control.Applicative ((<|>), liftA2)
 import           Control.Monad
 import           Data.Aeson
 import           Data.Constraint.Extras.TH
-import           Data.Kind
 import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)

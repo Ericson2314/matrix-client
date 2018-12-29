@@ -10,26 +10,10 @@ import           Control.Lens hiding ((.=), (%~))
 import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.Aeson as Ae
-import           Data.Constraint.Extras.TH
-import           Data.GADT.Compare
-import           Data.GADT.Compare.TH
-import           Data.GADT.Show
-import           Data.GADT.Show.TH
 import           Data.Constraint
 import           Data.Kind
-import           Data.Map (Map)
-import qualified Data.Map as Map
-import           Data.Some
-import           Data.Text (Text)
-import qualified Data.Text as T
-import           Data.Int
-import           Data.Word
 import           GHC.Generics
-import           GHC.TypeLits
 
-import           Data.DependentXhr
-import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
 
 --------------------------------------------------------------------------------

@@ -8,13 +8,10 @@ import           Control.Lens hiding ((.=))
 import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.Aeson as Ae
 import           Data.Constraint.Extras.TH
 import           Data.Kind
 import           Data.Map (Map)
-import qualified Data.Map as Map
 import           Data.Text (Text)
-import           Data.Int
 import           Data.Word
 import           GHC.Generics
 

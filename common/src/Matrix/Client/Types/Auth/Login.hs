@@ -12,8 +12,6 @@ import           Data.Aeson
 import qualified Data.Aeson as Ae
 import           Data.Aeson.Utils
 import           Data.Constraint.Extras.TH
-import           Data.Kind
-import qualified Data.Map as Map
 import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)

@@ -11,22 +11,15 @@ import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
 import qualified Data.Aeson as Ae
-import           Data.Constraint.Extras.TH
-import           Data.GADT.Compare
 import           Data.GADT.Compare.TH
-import           Data.GADT.Show
 import           Data.GADT.Show.TH
-import           Data.Constraint
-import           Data.Kind
 import           Data.Map (Map)
-import qualified Data.Map as Map
 import           Data.Some
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Int
 import           Data.Word
 import           GHC.Generics
-import           GHC.TypeLits
 
 import           Data.DependentXhr
 import           Matrix.Identifiers
@@ -52,6 +45,7 @@ deriving instance Show (EventType a)
 instance ToRoutePiece (EventType '(meta, body)) where
   toRoute = \case
     EventType_Unknown txt -> T.intercalate "." txt
+    EventType_Room ret -> toRoute ret
 
 instance ToJSON (EventType '(meta, body)) where
   toJSON = Ae.String . toRoute
@@ -149,6 +143,11 @@ data RoomEventType :: EventTypeKind where
     :: RoomEventType
        '( RedactionEventMeta
         , RedactionEventContent)
+
+instance ToRoutePiece (RoomEventType '(meta, body)) where
+  toRoute et = T.intercalate "." $ "m" : "room" : case et of
+    RoomEventType_Member -> ["member"]
+    RoomEventType_Redaction -> ["redaction"]
 
 deriving instance Eq (RoomEventType a)
 deriving instance Ord (RoomEventType a)

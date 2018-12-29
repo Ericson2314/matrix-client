@@ -10,8 +10,6 @@ import           Control.Monad
 import           Data.Aeson
 import qualified Data.Aeson as Ae
 import           Data.Constraint.Extras.TH
-import           Data.Kind
-import           Data.Some
 import           Data.Text (Text)
 import           Data.Word
 import           GHC.Generics

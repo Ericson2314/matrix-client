@@ -13,27 +13,8 @@ module Matrix.Client.Types
   , module Matrix.Client.Types.Room
   ) where
 
-import           Control.Lens hiding ((.=))
-import           Control.Applicative (liftA2)
-import           Control.Monad
-import           Data.Aeson
-import qualified Data.Aeson as Ae
-import           Data.Constraint.Extras.TH
 import           Data.DependentXhr
-import           Data.Kind
-import           Data.Map (Map)
-import qualified Data.Map as Map
-import           Data.Proxy
-import           Data.Some
-import           Data.Text (Text)
-import           Data.Type.Equality
-import           Data.Int
-import           Data.Word
-import           GHC.Generics
-import           GHC.TypeLits
 
-import           Matrix.Identifiers
-import           Matrix.Client.Types.Common
 import           Matrix.Client.Types.Auth.Login
 import           Matrix.Client.Types.Auth.Account
 import           Matrix.Client.Types.Filter

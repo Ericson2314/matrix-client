@@ -12,7 +12,6 @@ import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
 import           Data.Constraint.Extras.TH
-import           Data.Kind
 import           Data.Text (Text)
 import           GHC.Generics
 

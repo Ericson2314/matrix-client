@@ -17,7 +17,6 @@ import           Data.Constraint.Forall
 import           Data.Default
 import           Data.Kind
 import qualified Data.Map as Map
-import           Data.Map (Map)
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy
 import           Data.Some
@@ -25,7 +24,6 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import           Data.Void
-import           Data.Word
 import           GHC.Generics
 import           GHC.TypeLits
 import           Language.Javascript.JSaddle.Types
