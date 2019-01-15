@@ -22,6 +22,7 @@ import           Data.DependentXhr
 import           Data.Kind
 import qualified Data.Map.Monoidal as MM
 import           Data.Semigroup
+import qualified Data.Set as S
 import           Data.Vessel
 import           Database.Beam
 import           Database.Beam.Sqlite
@@ -45,6 +46,7 @@ import           Frontend.Schema
 
 data LocalFrontendRequestContext (t :: Type) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
+  , _localFrontendRequestContext_currentQuery :: Behavior t (FrontendV (Const SelectedCount))
   , _localFrontendRequestContext_updateQueryResult :: FrontendV Identity -> IO ()
   , _localFrontendRequestContext_logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
@@ -175,7 +177,7 @@ handleLocalFrontendRequest k c = \case
               , _login_isActive = True
               }
             newEntity = Entity uid' newValue
-        liftIO $ void $ withConnection c $ \conn -> runBeamSqlite conn $ do
+        lids <- liftIO $ withConnection c $ \conn -> runBeamSqlite conn $ do
           -- TODO: Add upsert support for beam-sqlite.
           old <- runSelectReturningOne $ lookup_ (dbLogin db) $ EntityKey uid'
           runUpdate $ update (dbLogin db)
@@ -184,10 +186,15 @@ handleLocalFrontendRequest k c = \case
           case old of
             Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
             Just _ -> runUpdate $ save (dbLogin db) newEntity
+          runSelectReturningList $ select $ pk <$> all_ (dbLogin db)
         $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
-        -- TODO: Add to V_Logins as well.
-        lift $ patchQueryResult c $ singletonV V_Login $ MapV $
-          MM.singleton uid' $ Identity $ First $ Just newValue
+        lift $ patchQueryResult c $ mconcat
+          [ singletonV V_Login $ MapV $
+              MM.singleton uid' $ Identity $ First $ Just newValue
+          -- TODO: Add accessor for value inside `EntityKey`.
+          , singletonV V_Logins $ SingleV $ Identity $ First $
+              S.fromList . fmap (\(EntityKey x) -> x) <$> lids
+          ]
         pure $ Right $ r ^. loginResponse_accessToken
   FrontendRequest_JoinRoom hs token room -> do
     performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hs token (JoinRequest Nothing) room $ cvtE $ \sentinal r -> case sentinal of
@@ -242,9 +249,11 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
   (queryResultPatch, updateQueryResult) <- newTriggerEvent
-  rec queryResult <- cropDyn (incrementalToDynamic q) queryResultPatch
+  rec let dq = incrementalToDynamic q
+      queryResult <- cropDyn dq queryResultPatch
       (a, q) <- flip runQueryT queryResult $ runReaderT m $ LocalFrontendRequestContext
         { _localFrontendRequestContext_connection = conn
+        , _localFrontendRequestContext_currentQuery = current dq
         , _localFrontendRequestContext_updateQueryResult = updateQueryResult
         , _localFrontendRequestContext_logger = logger
         }

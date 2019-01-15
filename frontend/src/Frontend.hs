@@ -1,9 +1,10 @@
 module Frontend where
 
 import           Control.Lens
+import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Text (Text)
-import           Data.Vessel
+import qualified Data.Text as T
 import           Obelisk.Frontend
 import           Obelisk.Route
 import           Obelisk.Route.Frontend
@@ -27,7 +28,12 @@ frontend = Frontend
 homePage :: (ObeliskWidget t x (R FrontendRoute) m, MonadQuery t FrontendQuery m) => m ()
 homePage = do
   login <- button def $ text "Login"
-  -- TODO: Query for logins here.
+  dLoginIds <- queryLogins
+  el "ul" $
+    void $ dyn $ ffor dLoginIds $ mapM_ $ mapM_ $ \loginId -> do
+      dml <- queryLogin (pure $ Just loginId)
+      void $ dyn $ ffor dml $ mapM_ $ \l ->
+        text $ T.pack $ show l
   setRoute $ FrontendRoute_Login :/ () <$ login
 
 loginPage :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()

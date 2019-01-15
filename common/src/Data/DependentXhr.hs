@@ -230,25 +230,3 @@ performRoutedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
       @js @m @request @respPerCode (methodToText $ reifyMethod @method) (T.intercalate "/" $ hs : routeList) mAuth r k)
     (reifyRoute @route))
   (makeToken @needsAuth)
-
--- type family Lefts (s :: [Either a b]) :: [a] where
---   Lefts '[] = '[]
---   Lefts ('Right _ : r) = Lefts r
---   Lefts ('Left s : r) = s : Lefts r
---
--- type family Rights (s :: [Either a b]) :: [b] where
---   Rights '[] = '[]
---   Rights ('Left _ : r) = Rights r
---   Rights ('Right s : r) = s : Rights r
---
--- type family ListHas (c :: x -> Constraint) (f :: [x]) :: Constraint where
---   ListHas _ '[] = ()
---   ListHas c (s : r) = (c s, ListHas c r)
---
--- _test
---   :: forall (route :: RoutePath)
---   .  ( ListHas KnownSymbol (Lefts route)
---      , ListHas ToJSON (Rights route)
---      )
---   => Dict (KnownRoute route)
--- _test = Dict
