@@ -236,7 +236,7 @@ runLocalFrontendRequestT
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
   -- TODO: Find some way to close the DB connection when the app is exited.
   conn <- prerender (return Nothing) $ liftIO $ fmap Just $ newMVar =<< initDb
-  -- TODO monad-logger should give us the underlying implementatino whether or
+  -- TODO monad-logger should give us the underlying implementation whether or
   -- not we in a `MonadIO`.
   logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
