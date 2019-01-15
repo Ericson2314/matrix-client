@@ -42,6 +42,7 @@ import           Frontend.Schema
 
 data LocalFrontendRequestContext (t :: *) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
+  , _localFrontendRequestContext_currentQuery :: Behavior t (FrontendV (Const SelectedCount))
   , _localFrontendRequestContext_updateQueryResult :: FrontendV Identity -> IO ()
   , _localFrontendRequestContext_logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
@@ -235,9 +236,11 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
   (queryResultPatch, updateQueryResult) <- newTriggerEvent
-  rec queryResult <- cropDyn (incrementalToDynamic q) queryResultPatch
+  rec let dq = incrementalToDynamic q
+      queryResult <- cropDyn dq queryResultPatch
       (a, q) <- flip runQueryT queryResult $ runReaderT m $ LocalFrontendRequestContext
         { _localFrontendRequestContext_connection = conn
+        , _localFrontendRequestContext_currentQuery = current dq
         , _localFrontendRequestContext_updateQueryResult = updateQueryResult
         , _localFrontendRequestContext_logger = logger
         }
