@@ -140,7 +140,7 @@ convertErrors handleSuccessful = \case
     pure $ Left $ FrontendError_Other $ Right $ Right $ Left eNoBody
   Right (Right (XhrThisStatus _ (Right (Left eBadJson)))) ->
     pure $ Left $ FrontendError_Other $ Right $ Right $ Right eBadJson
-  Right (Right (XhrThisStatus sentinal (Right (Right r)))) -> handleSuccessful sentinal r
+  Right (Right (XhrThisStatus sentinel (Right (Right r)))) -> handleSuccessful sentinel r
 
 handleLocalFrontendRequest
   :: forall js m t a
@@ -156,7 +156,7 @@ handleLocalFrontendRequest k c = \case
           (Login_Password pw)
           Nothing
           Nothing
-    performRoutedRequest (ClientServerRoute_Login LoginRoute_Login) hs loginRequest $ cvtE $ \sentinal r -> case sentinal of
+    performRoutedRequest (ClientServerRoute_Login LoginRoute_Login) hs loginRequest $ cvtE $ \sentinel r -> case sentinel of
       LoginRespKey_400 -> pure $ Left $ FrontendError_ResponseError r
       LoginRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       LoginRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
@@ -190,7 +190,7 @@ handleLocalFrontendRequest k c = \case
           ]
         pure $ Right $ r ^. loginResponse_accessToken
   FrontendRequest_JoinRoom hs token room -> do
-    performRoutedRequest ClientServerRoute_Join hs token JoinRequest room $ cvtE $ \sentinal r -> case sentinal of
+    performRoutedRequest ClientServerRoute_Join hs token JoinRequest room $ cvtE $ \sentinel r -> case sentinel of
       JoinRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_200 -> do
