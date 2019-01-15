@@ -5,7 +5,6 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Text (Text)
 import qualified Data.Text as T
-import           Data.Vessel
 import           Obelisk.Frontend
 import           Obelisk.Route
 import           Obelisk.Route.Frontend
