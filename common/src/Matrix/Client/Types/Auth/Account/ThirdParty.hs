@@ -9,7 +9,6 @@ import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
 import           Data.Constraint.Extras.TH
-import           Data.Kind
 import           Data.Text (Text)
 import           Data.Word
 import           GHC.Generics
@@ -73,6 +72,7 @@ instance ToJSON ThirdPartyIdentifier where
 
 --------------------------------------------------------------------------------
 
+-- TODO make GADT to enforce the address fields being of the right type.
 data ThirdPartyMedium
   = ThirdPartyMedium_Email
   | ThirdPartyMedium_msisdn
@@ -111,8 +111,8 @@ instance ToJSON Sid where
 
 --------------------------------------------------------------------------------
 
-data Get3PIdRespKey :: Type -> Type where
-  Get3PIdRespKey_200 :: Get3PIdRespKey Get3PIdResponse
+data Get3PIdRespKey :: RespRelation where
+  Get3PIdRespKey_200 :: Get3PIdRespKey 200 Get3PIdResponse
 
 data Get3PIdRequest = Get3PIdRequest
   deriving (Eq, Ord, Show, Generic)
@@ -133,9 +133,9 @@ instance ToJSON Get3PIdResponse where
 
 --------------------------------------------------------------------------------
 
-data Add3PIdRespKey :: Type -> Type where
-  Add3PIdRespKey_200 :: Add3PIdRespKey Add3PIdResponse
-  Add3PIdRespKey_403 :: Add3PIdRespKey Data.Aeson.Value
+data Add3PIdRespKey :: RespRelation where
+  Add3PIdRespKey_200 :: Add3PIdRespKey 200 Add3PIdResponse
+  Add3PIdRespKey_403 :: Add3PIdRespKey 403 Data.Aeson.Value
 
 data Add3PIdRequest = Add3PIdRequest
   { _add3PIdRequest_threePidCreds :: ThreePidCredentials
@@ -157,8 +157,8 @@ instance ToJSON Add3PIdResponse where
 
 --------------------------------------------------------------------------------
 
-data Delete3PIdRespKey :: Type -> Type where
-  Delete3PiRespKey_200 :: Delete3PIdRespKey Delete3PIdResponse
+data Delete3PIdRespKey :: RespRelation where
+  Delete3PiRespKey_200 :: Delete3PIdRespKey 200 Delete3PIdResponse
 
 data Delete3PIdRequest = Delete3PIdRequest
   { _delete3PIdRequest_medium :: ThirdPartyMedium
@@ -180,9 +180,9 @@ instance ToJSON Delete3PIdResponse where
 
 --------------------------------------------------------------------------------
 
-data EmailRequestTokenRespKey :: Type -> Type where
-  EmailRequestTokenRespKey_200 :: EmailRequestTokenRespKey EmailRequestTokenResponse
-  EmailRequestTokenRespKey_403 :: EmailRequestTokenRespKey Data.Aeson.Value
+data EmailRequestTokenRespKey :: RespRelation where
+  EmailRequestTokenRespKey_200 :: EmailRequestTokenRespKey 200 EmailRequestTokenResponse
+  EmailRequestTokenRespKey_403 :: EmailRequestTokenRespKey 403 Data.Aeson.Value
 
 data EmailRequestTokenRequest = EmailRequestTokenRequest
   { _emailRequestTokenRequest_clientSecret :: Text -- TODO there is a regex
@@ -208,9 +208,9 @@ instance ToJSON EmailRequestTokenResponse where
 
 --------------------------------------------------------------------------------
 
-data PhoneRequestTokenRespKey :: Type -> Type where
-  PhoneRequestTokenRespKey_200 :: PhoneRequestTokenRespKey PhoneRequestTokenResponse
-  PhoneRequestTokenRespKey_403 :: PhoneRequestTokenRespKey Data.Aeson.Value
+data PhoneRequestTokenRespKey :: RespRelation where
+  PhoneRequestTokenRespKey_200 :: PhoneRequestTokenRespKey 200 PhoneRequestTokenResponse
+  PhoneRequestTokenRespKey_403 :: PhoneRequestTokenRespKey 403 Data.Aeson.Value
 
 data PhoneRequestTokenRequest = PhoneRequestTokenRequest
   { _phoneRequestTokenRequest_clientSecret :: Text -- TODO there is a regex
@@ -238,7 +238,7 @@ instance ToJSON PhoneRequestTokenResponse where
 
 --------------------------------------------------------------------------------
 
-join <$> traverse deriveArgDict
+join <$> traverse (deriveArgDict)
   [ ''Get3PIdRespKey
   , ''Add3PIdRespKey
   , ''Delete3PIdRespKey

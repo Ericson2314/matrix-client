@@ -26,7 +26,10 @@ library
     Matrix.Client.Types.Auth.Account.ThirdParty
     Matrix.Client.Types.Filter
     Matrix.Client.Types.Event
+    Matrix.Client.Types.Event.Abstract
     Matrix.Client.Types.Event.Route
+    Matrix.Client.Types.Rooms
+    Matrix.Client.Types.UserData
     Matrix.Identifiers
 
   other-modules:

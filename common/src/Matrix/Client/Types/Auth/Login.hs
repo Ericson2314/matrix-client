@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeInType #-}
@@ -11,11 +12,12 @@ import           Data.Aeson
 import qualified Data.Aeson as Ae
 import           Data.Aeson.Utils
 import           Data.Constraint.Extras.TH
-import           Data.Kind
-import qualified Data.Map as Map
+import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)
+import           Data.Type.Equality
 import           GHC.Generics
+import           GHC.TypeLits
 
 import           Data.DependentXhr
 
@@ -56,11 +58,11 @@ data LoginRoute :: Route where
 
 --------------------------------------------------------------------------------
 
-data Login'RespKey :: Type -> Type where
-  Login'RespKey_200 :: Login'RespKey Login'Response
-  Login'RespKey_400 :: Login'RespKey Data.Aeson.Value
-  Login'RespKey_403 :: Login'RespKey Data.Aeson.Value
-  Login'RespKey_429 :: Login'RespKey Data.Aeson.Value
+data Login'RespKey :: RespRelation where
+  Login'RespKey_200 :: Login'RespKey 200 Login'Response
+  Login'RespKey_400 :: Login'RespKey 400 Data.Aeson.Value
+  Login'RespKey_403 :: Login'RespKey 403 Data.Aeson.Value
+  Login'RespKey_429 :: Login'RespKey 429 Data.Aeson.Value
 
 data Login'Request = Login'Request
   deriving (Eq, Ord, Show, Generic)
@@ -90,19 +92,23 @@ instance ToJSON LoginFlow where
 
 --------------------------------------------------------------------------------
 
-data LoginRespKey :: Type -> Type where
-  LoginRespKey_200 :: LoginRespKey LoginResponse
-  LoginRespKey_400 :: LoginRespKey Data.Aeson.Value
-  LoginRespKey_403 :: LoginRespKey Data.Aeson.Value
-  LoginRespKey_429 :: LoginRespKey Data.Aeson.Value
+data LoginRespKey :: RespRelation where
+  LoginRespKey_200 :: LoginRespKey 200 LoginResponse
+  LoginRespKey_400 :: LoginRespKey 400 Data.Aeson.Value
+  LoginRespKey_403 :: LoginRespKey 403 Data.Aeson.Value
+  LoginRespKey_429 :: LoginRespKey 429 Data.Aeson.Value
 
-instance GetStatusKey LoginRespKey where
-  statusMap = Map.fromList
-    [ (200, This LoginRespKey_200)
-    , (400, This LoginRespKey_400)
-    , (403, This LoginRespKey_403)
-    , (429, This LoginRespKey_429)
-    ]
+instance DecidablableLookup LoginRespKey where
+  -- TODO handle other cases, make some TH for this.
+  liftedLookup
+    :: forall status
+    .  KnownNat status
+    => Decision (Some (LoginRespKey status))
+  liftedLookup = case
+      sameNat (Proxy :: Proxy status)
+              (Proxy :: Proxy 200)
+    of
+      Just Refl -> Proved $ This LoginRespKey_200
 
 data LoginRequest = LoginRequest
   { _loginRequest_identifier :: UserIdentifier
@@ -148,8 +154,8 @@ instance ToJSON LoginResponse where
 
 --------------------------------------------------------------------------------
 
-data LogoutRespKey :: Type -> Type where
-  LogoutRespKey_200 :: LogoutRespKey LogoutResponse
+data LogoutRespKey :: RespRelation where
+  LogoutRespKey_200 :: LogoutRespKey 200 LogoutResponse
 
 data LogoutRequest = LogoutRequest
   deriving (Eq, Ord, Show, Generic)
@@ -169,8 +175,8 @@ instance ToJSON LogoutResponse where
 
 --------------------------------------------------------------------------------
 
-data LogoutAllRespKey :: Type -> Type where
-  LogoutAllRespKey_200 :: LogoutAllRespKey LogoutAllResponse
+data LogoutAllRespKey :: RespRelation where
+  LogoutAllRespKey_200 :: LogoutAllRespKey 200 LogoutAllResponse
 
 data LogoutAllRequest = LogoutAllRequest
   deriving (Eq, Ord, Show, Generic)

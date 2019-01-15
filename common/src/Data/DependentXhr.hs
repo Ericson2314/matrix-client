@@ -2,6 +2,7 @@
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeInType #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 module Data.DependentXhr where
 
 import           Control.Monad
@@ -9,17 +10,20 @@ import           Control.Monad.IO.Class
 import           Data.Aeson
 import           Data.Aeson.Utils
 import           Data.ByteString.Lazy (toStrict, fromStrict)
+--import           Data.Constraint (Dict (..))
+import           Data.Constraint
 import           Data.Constraint.Extras
+import           Data.Constraint.Forall
+import           Data.Default
 import           Data.Kind
 import qualified Data.Map as Map
-import           Data.Map (Map)
 import           Data.Maybe (fromMaybe)
 import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
-import           Data.Word
+import           Data.Void
 import           GHC.Generics
 import           GHC.TypeLits
 import           Language.Javascript.JSaddle.Types
@@ -35,15 +39,12 @@ data ErrorXhrNoBody = ErrorXhrNoBody
 data ErrorXhrInvalidStatus = ErrorXhrInvalidStatus
   deriving (Eq, Ord, Show)
 
--- | Maps a HTTP response code the type to which the the response should
--- decode to.
-class GetStatusKey (respPerCode :: Type -> Type) where
-  statusMap :: Map Word16 (Some respPerCode)
-
-data XhrSomeStatus (respPerCode :: Type -> Type)
-  = forall r. XhrThisStatus (respPerCode r)
-                            (Either ErrorXhrNoBody
-                                    (Either ErrorBadJsonParse r))
+data XhrSomeStatus (respPerCode :: Nat -> Type -> Type)
+  =  forall status response
+  .  KnownNat status
+  => XhrThisStatus (respPerCode status response)
+                   (Either ErrorXhrNoBody
+                           (Either ErrorBadJsonParse response))
 
 type XhrResponseParse respPerCode =
   Either XhrException
@@ -62,9 +63,37 @@ performRequestCallbackWithError
 performRequestCallbackWithError k req =
   void $ newXMLHttpRequestWithError req $ liftIO . k
 
+
+-- | Composition for constraints.
+class p (f a) => ComposeC (p :: k2 -> Constraint) (f :: k1 -> k2) (a :: k1)
+instance p (f a) => ComposeC p f a
+
+class (ArgDict f, ConstraintsFor f c) => HasClass (c :: k -> Constraint) f
+instance (ArgDict f, ConstraintsFor f c) => HasClass (c :: k -> Constraint) f
+
+-- TODO GHC 8.6 use forall constraints. This is garbage sauce.
+type RespTyConstr c respPerCode = Forall (ComposeC (HasClass c) respPerCode)
+
+-- | Cribbed from singletons. (Though modulo names there's basically one way to
+-- do this.)
+data Decision a
+  = Proved a
+  | Disproved (a -> Void)
+  deriving (Generic)
+
+-- | Partially apply a relation (GADT) and then decide whether it's inhabitted
+-- for any argument for the remaining parameter.
+class DecidablableLookup (mapRel :: Nat -> k -> Type) where
+  liftedLookup :: forall n. KnownNat n => Decision (Some (mapRel n))
+
 performXhrCallbackWithErrorJSON
   :: forall js m request respPerCode
-  .  (JSConstraints js m, ToJSON request, GetStatusKey respPerCode, Has FromJSON respPerCode)
+  .  ( JSConstraints js m
+     , ToJSON request
+     -- , GetStatusKey respPerCode
+     , RespTyConstr FromJSON respPerCode
+     , DecidablableLookup respPerCode
+     )
   => Text
   -> Text
   -> Maybe AccessToken
@@ -79,14 +108,22 @@ performXhrCallbackWithErrorJSON method url auth request k = do
       & xhrRequestConfig_headers .~ (fromMaybe mempty $ Map.singleton "Authorization" . getAccessToken <$> auth)
   flip performRequestCallbackWithError req $ k . \case
     Left e -> Left e
-    Right r -> Right $ case Map.lookup (fromIntegral $ _xhrResponse_status r) statusMap of
-      Nothing -> Left ErrorXhrInvalidStatus
-      Just (This statusKey) -> Right $ XhrThisStatus statusKey $
-        case _xhrResponse_responseText r of
-          Nothing -> Left ErrorXhrNoBody
-          Just raw -> Right $ case has @FromJSON statusKey $ eitherDecode $ fromStrict $ encodeUtf8 raw of
-            Left jsonError -> Left $ ErrorBadJsonParse jsonError raw
-            Right val -> Right val
+    Right r -> Right $ case someNatVal $ fromIntegral $ _xhrResponse_status r of
+      Nothing -> error "impossible, HTTP status are always positive, need a better `someNatVal`"
+      Just (SomeNat (Proxy :: Proxy status)) -> case liftedLookup of
+        Disproved _prf -> Left ErrorXhrInvalidStatus
+        Proved (This (statusKey :: respPerCode status resp)) -> Right $ XhrThisStatus statusKey $
+          case _xhrResponse_responseText r of
+            Nothing -> Left ErrorXhrNoBody
+            Just raw -> Right $ case inst of
+              (Sub Dict :: Forall (ComposeC (HasClass FromJSON)
+                                            respPerCode)
+                        :- (ComposeC (HasClass FromJSON)
+                                     respPerCode)
+                           status) ->
+                case has @FromJSON statusKey $ eitherDecode $ fromStrict $ encodeUtf8 raw of
+                  Left jsonError -> Left $ ErrorBadJsonParse jsonError raw
+                  Right val -> Right val
 
 type RoutePath = [Either Symbol Type]
 
@@ -160,22 +197,25 @@ instance ReifyMethod 'POST where
 instance ReifyMethod 'DELETE where
   reifyMethod = DELETE
 
+type RespRelation = Nat -> Type -> Type
+
 type Route
   =  Method
   -> RoutePath
   -> Bool
   -> Type
-  -> (Type -> Type)
+  -> RespRelation
   -> Type
 
 performRoutedRequest
-  :: forall (routeRelation :: Route) js m (method :: Method) (route :: RoutePath) (needsAuth :: Bool) request respPerCode
+  :: forall (routeRelation :: Route) js m (method :: Method) (route :: RoutePath) (needsAuth :: Bool) request (respPerCode :: RespRelation)
   .  ( JSConstraints js m
      , KnownRoute route
      , KnownNeedsAuth needsAuth
      , ToJSON request
-     , GetStatusKey respPerCode
-     , Has FromJSON respPerCode
+     -- , GetStatusKey respPerCode
+     , RespTyConstr FromJSON respPerCode
+     , DecidablableLookup respPerCode
      , ReifyMethod method
      )
   => routeRelation method route needsAuth request respPerCode

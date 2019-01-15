@@ -8,13 +8,10 @@ import           Control.Lens hiding ((.=))
 import           Control.Applicative (liftA2)
 import           Control.Monad
 import           Data.Aeson
-import qualified Data.Aeson as Ae
 import           Data.Constraint.Extras.TH
 import           Data.Kind
 import           Data.Map (Map)
-import qualified Data.Map as Map
 import           Data.Text (Text)
-import           Data.Int
 import           Data.Word
 import           GHC.Generics
 
@@ -39,84 +36,89 @@ data EventRoute :: Route where
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "event", 'Right EventId ]
        'True
-       () --GetRoomEventRequest
-       SyncRespKey --GetRoomEventRespKey
+       GetRoomEventRequest
+       GetRoomEventRespKey
   EventRoute_GetRoomStateAt
-    :: EventRoute
+    :: IsRoomStateEvent meta body
+    => EventRoute
        'GET
-       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType, 'Right StateKey ]
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)), 'Right StateKey ]
        'True
-       () --GetRoomStateAtRequest
-       SyncRespKey --GetRoomStateAtRespKey
+       GetRoomStateRequest
+       (GetRoomStateRespKey body)
   EventRoute_GetRoomStateCurrent
-    :: EventRoute
+    :: IsRoomStateEvent meta body
+    => EventRoute
        'GET
-       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType ]
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)) ]
        'True
-       () --GetRoomStateCurrentRequest
-       SyncRespKey --GetRoomStateCurrentRespKey
+       GetRoomStateRequest
+       (GetRoomStateRespKey body)
   EventRoute_GetRoomStateAll
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "state" ]
        'True
-       () --GetRoomStateAllRequest
-       SyncRespKey --GetRoomStateAllRespKey
+       GetRoomStateAllRequest
+       GetRoomStateAllRespKey
   EventRoute_GetRoomMembers
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "members" ]
        'True
-       () --GetRoomMembersRequest
-       SyncRespKey --GetRoomMembersRespKey
+       GetRoomMembersRequest
+       GetRoomMembersRespKey
   EventRoute_GetRoomJoinedMembers
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "joined_members" ]
        'True
-       () --GetRoomJoinedMembersRequest
-       SyncRespKey --GetRoomJoinedMembersRespKey
+       GetRoomJoinedMembersRequest
+       GetRoomJoinedMembersRespKey
   EventRoute_GetRoomMessages
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "messages" ]
        'True
-       () --GetRoomMessagesRequest
-       SyncRespKey --GetRoomMessagesRespKey
+       GetRoomMessagesRequest
+       GetRoomMessagesRespKey
   EventRoute_PutRoomStateAt
-    :: EventRoute
+    :: IsRoomStateEvent meta body
+    => EventRoute
        'PUT
-       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType, 'Right StateKey ]
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)), 'Right StateKey ]
        'True
-       () --PutRoomStateAtRequest
-       SyncRespKey --PutRoomStateAtRespKey
+       body
+       PutRoomRespKey
   EventRoute_PutRoomStateCurrent
-    :: EventRoute
+    :: IsRoomStateEvent meta body
+    => EventRoute
        'PUT
-       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right EventType ]
+       '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)) ]
        'True
-       () --PutRoomStateCurrentRequest
-       SyncRespKey --PutRoomStateCurrentRespKey
+       body
+       PutRoomRespKey
   EventRoute_PutRoom
-    :: EventRoute
+    :: IsRoomEvent meta body
+    => EventRoute
        'PUT
-       '[ 'Left "rooms", 'Right RoomId, 'Left "send", 'Right EventType, 'Right TxnId ]
+       '[ 'Left "rooms", 'Right RoomId, 'Left "send", 'Right (EventType '(meta, body)), 'Right TxnId ]
        'True
-       () --PutRoomRequest
-       SyncRespKey --PutRoomRespKey
-  EventRoute_PutRoomRedact
-    :: EventRoute
+       body
+       PutRoomRespKey
+  EventRoute_PutRoomRedaction
+    :: IsRoomEvent meta body
+    => EventRoute
        'PUT
-       '[ 'Left "rooms", 'Right RoomId, 'Left "redact", 'Right EventType, 'Right TxnId ]
+       '[ 'Left "rooms", 'Right RoomId, 'Left "redact", 'Right (EventType '(meta, body)), 'Right TxnId ]
        'True
-       () --PutRoomRequestRedact
-       SyncRespKey --PutRoomRespKeyRedact
+       RedactionEventContent
+       PutRoomRedactionRespKey
 
 --------------------------------------------------------------------------------
 
-data SyncRespKey :: Type -> Type where
-  SyncRespKey_Valid :: SyncRespKey SyncResponse
-  SyncRespKey_Invalid :: SyncRespKey Ae.Value
+data SyncRespKey :: RespRelation where
+  SyncRespKey_200 :: SyncRespKey 200 SyncResponse
 
 data Filter'
   = Filter'_Id Text
@@ -170,7 +172,7 @@ data SyncResponse = SyncResponse
   -- , _syncResponse_toDevice :: ToDevice
   -- , _syncResponse_deviceLists :: DeviceLists
   -- , _syncResponse_deviceOneTimeKeysCount :: Map Text Word32
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON SyncResponse where
   parseJSON = genericParseJSON aesonOptions
@@ -181,7 +183,7 @@ data Rooms = Rooms
   { _rooms_join :: Map Text JoinedRoom
   , _rooms_invite :: Map Text InvitedRoom
   , _rooms_left :: Map Text LeftRoom
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON Rooms where
   parseJSON = genericParseJSON aesonOptions
@@ -194,7 +196,7 @@ data JoinedRoom = JoinedRoom
   , _joinedRoom_ephemeral :: Ephemeral
   , _joinedRoom_accountData :: AccountData
   , _joinedRoom_unreadNotifications :: UnreadNotificationCounts
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON JoinedRoom where
   parseJSON = genericParseJSON aesonOptions
@@ -202,8 +204,8 @@ instance ToJSON JoinedRoom where
   toJSON = genericToJSON aesonOptions
 
 data Ephemeral = Ephemeral
-  { _ephemeral_events :: [Event ()] -- TODO fix `()`
-  } deriving (Eq, Ord, Show, Generic)
+  { _ephemeral_events :: [Event]
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON Ephemeral where
   parseJSON = genericParseJSON aesonOptions
@@ -221,8 +223,8 @@ instance ToJSON UnreadNotificationCounts where
   toJSON = genericToJSON aesonOptions
 
 data InvitedRoom = InvitedRoom
-  { _InvitedRoom_invite_state :: InviteState -- [Event]
-  } deriving (Eq, Ord, Show, Generic)
+  { _InvitedRoom_invite_state :: InviteState
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON InvitedRoom where
   parseJSON = genericParseJSON aesonOptions
@@ -231,7 +233,7 @@ instance ToJSON InvitedRoom where
 
 data InviteState = InviteState
   { _InviteState_events :: [StrippedState]
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON InviteState where
   parseJSON = genericParseJSON aesonOptions
@@ -240,76 +242,22 @@ instance ToJSON InviteState where
 
 -- | All fields REQUIRED
 data StrippedState = StrippedState
-  { _strippedState_content :: EventContent
+  { _strippedState_content :: () -- TODO work in with Event abstractions
   , _strippedState_state_key :: Text
   , _strippedState_type :: Text
   , _strippedState_sender :: Text
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON StrippedState where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON StrippedState where
   toJSON = genericToJSON aesonOptions
 
-data EventContent = EventContent
-  { _eventContent_avatar_url :: MatrixUri
-  , _eventContent_displayname :: Maybe Text
-  , _eventContent_membership :: Membership
-  , _eventContent_isDirect :: Bool
-  , _eventContent_thirdPartyInvite :: Invite
-  , _eventContent_unsigned ::UnsignedData
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON EventContent where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON EventContent where
-  toJSON = genericToJSON aesonOptions
-
-data Invite = Invite
-  { _invite_displayName :: Text
-  , _invite_signed :: Signed
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON Invite where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON Invite where
-  toJSON = genericToJSON aesonOptions
-
-data Signed = Signed
-  { _signed_mxid :: Text
-  , _signed_signatures :: Signatures
-  , _signed_token :: Text
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON Signed where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON Signed where
-  toJSON = genericToJSON aesonOptions
-
--- Definition only found in the server-server spec :/.
-newtype Signatures = Signatures (Map Text (Map Text Text))
-  deriving (Eq, Ord, Show, Generic)
-  deriving newtype (FromJSON, ToJSON)
-
-data Membership
-  = Membership_Invite
-  | Membership_Join
-  | Membership_Knock
-  | Membership_Leave
-  | Membership_Ban
-  deriving (Eq, Ord, Show, Generic, Enum, Bounded)
-
--- TODO fix enum instances
-instance FromJSON Membership where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON Membership where
-  toJSON = genericToJSON aesonOptions
-
 data LeftRoom = LeftRoom
   { _leftRoom_state :: State
   , _leftRoom_timeline :: Timeline
   , _leftRoom_accountData :: AccountData
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON LeftRoom where
   parseJSON = genericParseJSON aesonOptions
@@ -317,69 +265,28 @@ instance ToJSON LeftRoom where
   toJSON = genericToJSON aesonOptions
 
 data State = State
-  { _state_events :: [StateEvent ()] -- TODO fix `()`
-  } deriving (Eq, Ord, Show, Generic)
+  { _state_events :: [StateEvent]
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON State where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON State where
   toJSON = genericToJSON aesonOptions
 
--- | Added C parameter so as to keep having Ord instances.
-data StateEvent c = StateEvent
-  { _stateEvent_content :: c -- REQUIRED
-  , _stateEvent_type :: EventType -- REQUIRED
-  , _stateEvent_eventId :: EventId -- REQUIRED
-  , _stateEvent_sender :: Text -- REQUIRED
-  , _stateEvent_originServerAs :: Int32 -- REQUIRED
-  , _stateEvent_unsigned :: UnsignedData
-  , _stateEvent_prevContent :: EventContent
-  , _stateEvent_stateKey :: EventContent -- REQUIRED
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON c => FromJSON (StateEvent c) where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON c => ToJSON (StateEvent c) where
-  toJSON = genericToJSON aesonOptions
-
 data Timeline = Timeline
-  { _timeline_events :: [RoomEvent ()] -- TODO fix `()`
+  { _timeline_events :: [RoomEvent]
   , _timeline_limited :: Bool
   , _timeline_prevBatch :: Text
-  } deriving (Eq, Ord, Show, Generic)
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON Timeline where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON Timeline where
   toJSON = genericToJSON aesonOptions
 
-data RoomEvent c = RoomEvent
-  { _roomEvent_content :: c -- REQUIRED
-  , _roomEvent_type :: EventType -- REQUIRED
-  , _roomEvent_eventId :: EventId -- REQUIRED
-  , _roomEvent_sender :: Text -- REQUIRED
-  , _roomEvent_unsigned :: UnsignedData -- REQUIRED
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON c => FromJSON (RoomEvent c) where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON c => ToJSON (RoomEvent c) where
-  toJSON = genericToJSON aesonOptions
-
-data UnsignedData = UnsignedData
-  { _unsignedData_age :: Int64 -- documented to maybe be negative
-  , _unsignedData_redactedBecause :: Event () -- enphasized Optional
-  , _unsignedData_transactionId :: Text
-  } deriving (Eq, Ord, Show, Generic)
-
-instance FromJSON UnsignedData where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON UnsignedData where
-  toJSON = genericToJSON aesonOptions
-
 data Presence = Presence
-  { _presence_events :: [Event ()] -- TODO fix `()`
-  } deriving (Eq, Ord, Show, Generic)
+  { _presence_events :: [Event]
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON Presence where
   parseJSON = genericParseJSON aesonOptions
@@ -387,30 +294,177 @@ instance ToJSON Presence where
   toJSON = genericToJSON aesonOptions
 
 data AccountData = AccountData
-  { _accountData_events :: [Event ()] -- TODO fix `()`
-  } deriving (Eq, Ord, Show, Generic)
+  { _accountData_events :: [Event]
+  } deriving ({-Eq, Ord, Show,-} Generic)
 
 instance FromJSON AccountData where
   parseJSON = genericParseJSON aesonOptions
 instance ToJSON AccountData where
   toJSON = genericToJSON aesonOptions
 
-data Event c = Event
-  { _content :: c
-  , _type :: EventType
-  } deriving (Eq, Ord, Show, Generic)
+--------------------------------------------------------------------------------
 
-instance FromJSON c => FromJSON (Event c) where
+data GetRoomEventRespKey :: RespRelation where
+  GetRoomEventRespKey_200 :: GetRoomEventRespKey 200 RoomEvent
+  GetRoomEventRespKey_404 :: GetRoomEventRespKey 404 Data.Aeson.Value
+
+data GetRoomEventRequest = GetRoomEventRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomEventRequest where
   parseJSON = genericParseJSON aesonOptions
-instance ToJSON c => ToJSON (Event c) where
+instance ToJSON GetRoomEventRequest where
   toJSON = genericToJSON aesonOptions
 
 --------------------------------------------------------------------------------
 
-join <$> traverse deriveArgDict
+data GetRoomStateRespKey :: Type -> RespRelation where
+  GetRoomStateRespKey_200 :: GetRoomStateRespKey body 200 body
+  GetRoomStateRespKey_403 :: GetRoomStateRespKey body 403 Data.Aeson.Value
+  GetRoomStateRespKey_404 :: GetRoomStateRespKey body 404 Data.Aeson.Value
+
+data GetRoomStateRequest = GetRoomStateRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomStateRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomStateRequest where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomStateAllRespKey :: RespRelation where
+  GetRoomStateAllRespKey_200 :: GetRoomStateAllRespKey 200 [RoomStateEvent]
+  GetRoomStateAllRespKey_403 :: GetRoomStateAllRespKey 403 Data.Aeson.Value
+
+data GetRoomStateAllRequest = GetRoomStateAllRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomStateAllRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomStateAllRequest where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomMembersRespKey :: RespRelation where
+  GetRoomMembersRespKey_200 :: GetRoomMembersRespKey 200 GetRoomMembersResponse
+  GetRoomMembersRespKey_403 :: GetRoomMembersRespKey 403 Data.Aeson.Value
+
+data GetRoomMembersRequest = GetRoomMembersRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomMembersRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMembersRequest where
+  toJSON = genericToJSON aesonOptions
+
+data GetRoomMembersResponse = GetRoomMembersResponse
+  { _getRoomMembersResponse_chunk :: [MemberEvent]
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomMembersResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMembersResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomJoinedMembersRespKey :: RespRelation where
+  GetRoomJoinedMembersRespKey_200 :: GetRoomJoinedMembersRespKey 200 GetRoomJoinedMembersResponse
+  GetRoomJoinedMembersRespKey_403 :: GetRoomJoinedMembersRespKey 403 Data.Aeson.Value
+
+data GetRoomJoinedMembersRequest = GetRoomJoinedMembersRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomJoinedMembersRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomJoinedMembersRequest where
+  toJSON = genericToJSON aesonOptions
+
+data GetRoomJoinedMembersResponse = GetRoomJoinedMembersResponse
+  { _getRoomJoinedMembersResponse_joined :: Map UserId RoomMember
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomJoinedMembersResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomJoinedMembersResponse where
+  toJSON = genericToJSON aesonOptions
+
+data RoomMember = RoomMember
+  { _roomMember_displayName :: Text
+  , _roomMember_avatarUrl :: MatrixUri
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON RoomMember where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON RoomMember where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data GetRoomMessagesRespKey :: RespRelation where
+  GetRoomMessagesRespKey_200 :: GetRoomMessagesRespKey 200 GetRoomMessagesResponse
+  GetRoomMessagesRespKey_403 :: GetRoomMessagesRespKey 403 Data.Aeson.Value
+
+data GetRoomMessagesRequest = GetRoomMessagesRequest
+  deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON GetRoomMessagesRequest where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMessagesRequest where
+  toJSON = genericToJSON aesonOptions
+
+data GetRoomMessagesResponse = GetRoomMessagesResponse
+  { _getRoomMessagesResponse_start :: Text
+  , _getRoomMessagesResponse_end :: Text
+  , _getRoomMessagesResponse_chunk :: [RoomEvent]
+  } deriving ({-Eq, Ord, Show,-} Generic)
+
+instance FromJSON GetRoomMessagesResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON GetRoomMessagesResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data PutRoomRespKey :: RespRelation where
+  PutRoomRespKey_200 :: PutRoomRespKey 200 PutRoomResponse
+  PutRoomRespKey_403 :: PutRoomRespKey 403 Data.Aeson.Value
+
+data PutRoomResponse = PutRoomResponse
+  { _putRoomResponse_eventId :: EventId
+  } deriving (Eq, Ord, Show, Generic)
+
+instance FromJSON PutRoomResponse where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON PutRoomResponse where
+  toJSON = genericToJSON aesonOptions
+
+--------------------------------------------------------------------------------
+
+data PutRoomRedactionRespKey :: RespRelation where
+  PutRoomRedactionRespKey_200 :: PutRoomRedactionRespKey 200 PutRoomResponse
+
+--------------------------------------------------------------------------------
+
+join <$> traverse (deriveArgDict)
   [ ''SyncRespKey
+  , ''GetRoomEventRespKey
+  -- , ''GetRoomStateRespKey
+  , ''GetRoomStateAllRespKey
+  , ''GetRoomMembersRespKey
+  , ''GetRoomJoinedMembersRespKey
   ]
+
+-- TODO some scoping error in TH
+-- deriveArgDict' 2 ''GetRoomStateRespKey
 
 join <$> traverse (\ty -> liftA2 (<>) (makeLenses ty) (makeFields ty))
   [ ''SyncRequest, ''SyncResponse
+  , ''GetRoomEventRequest
+  , ''GetRoomStateRequest
+  , ''GetRoomStateAllRequest
+  , ''GetRoomMembersRequest
+  , ''GetRoomJoinedMembersRequest
   ]

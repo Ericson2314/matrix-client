@@ -10,7 +10,6 @@ import           Control.Monad
 import           Data.Aeson
 import qualified Data.Aeson as Ae
 import           Data.Constraint.Extras.TH
-import           Data.Kind
 import           Data.Text (Text)
 import           Data.Word
 import           GHC.Generics
@@ -49,9 +48,9 @@ instance ToJSON EventFormat where
 data EventFilter = EventFilter
   { _eventFilter_limit :: Word32
   , _eventFilter_notSenders :: [UserId]
-  , _eventFilter_notTypes :: [EventType]
+  , _eventFilter_notTypes :: [SomeEventType]
   , _eventFilter_senders :: Maybe [UserId]
-  , _eventFilter_types :: Maybe [EventType]
+  , _eventFilter_types :: Maybe [SomeEventType]
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON EventFilter where
@@ -78,9 +77,9 @@ instance ToJSON RoomFilter where
 data RoomEventFilter = RoomEventFilter
   { _roomEventFilter_limit :: Word32
   , _roomEventFilter_notSenders :: [UserId]
-  , _roomEventFilter_notTypes :: [EventType]
+  , _roomEventFilter_notTypes :: [SomeEventType]
   , _roomEventFilter_senders :: Maybe [UserId]
-  , _roomEventFilter_types :: Maybe [EventType]
+  , _roomEventFilter_types :: Maybe [SomeEventType]
   , _roomEventFilter_notRooms :: [RoomId]
   , _roomEventFilter_rooms :: Maybe [RoomId]
   , _roomEventFilter_containsUrl :: Maybe Bool
@@ -117,8 +116,8 @@ data FilterRoute :: Route where
 
 --------------------------------------------------------------------------------
 
-data PutFilterRespKey :: Type -> Type where
-  PutFilterRespKey_200 :: PutFilterRespKey PutFilterResponse
+data PutFilterRespKey :: RespRelation where
+  PutFilterRespKey_200 :: PutFilterRespKey 200 PutFilterResponse
 
 type PutFilterRequest = Filter
 
@@ -133,9 +132,9 @@ instance ToJSON PutFilterResponse where
 
 --------------------------------------------------------------------------------
 
-data GetFilterRespKey :: Type -> Type where
-  GetFilterRespKey_200 :: GetFilterRespKey GetFilterResponse
-  GetFilterRespKey_404 :: GetFilterRespKey Ae.Value
+data GetFilterRespKey :: RespRelation where
+  GetFilterRespKey_200 :: GetFilterRespKey 200 GetFilterResponse
+  GetFilterRespKey_404 :: GetFilterRespKey 404 Ae.Value
 
 data GetFilterRequest = GetFilterRequest
   deriving (Eq, Ord, Show, Generic)
@@ -149,7 +148,7 @@ type GetFilterResponse = Filter
 
 --------------------------------------------------------------------------------
 
-join <$> traverse deriveArgDict
+join <$> traverse (deriveArgDict)
   [ ''PutFilterRespKey
   ]
 

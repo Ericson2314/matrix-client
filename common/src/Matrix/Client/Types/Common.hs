@@ -37,3 +37,16 @@ instance FromJSON MatrixUri where
 
 instance ToJSON MatrixUri where
   toJSON = String . render . unMatrixUri
+
+--------------------------------------------------------------------------------
+
+data Visibility
+  = Visibility_Public
+  | Visibility_Private
+  deriving (Eq, Ord, Show, Generic, Enum, Bounded)
+
+-- TODO fix enum instances
+instance FromJSON Visibility where
+  parseJSON = genericParseJSON aesonOptions
+instance ToJSON Visibility where
+  toJSON = genericToJSON aesonOptions
