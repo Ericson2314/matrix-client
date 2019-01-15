@@ -20,6 +20,8 @@ data Login f = Login
   , _login_isActive :: Columnar f Bool
   } deriving (Generic, Beamable)
 
+deriving instance Show (Login Identity)
+
 makeLenses ''Login
 
 -- Until https://github.com/tathougies/beam/issues/262 is resolved, this is too
