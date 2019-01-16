@@ -6,6 +6,7 @@
 module Frontend.Request.Local where
 
 import           Control.Concurrent
+import           Control.Concurrent.STM
 import           Control.Lens hiding (has)
 import           Control.Monad
 import           Control.Monad.Fix
@@ -21,6 +22,7 @@ import           Data.Constraint
 import           Data.DependentXhr
 import           Data.Kind
 import qualified Data.Map.Monoidal as MM
+import           Data.Maybe
 import           Data.Semigroup
 import qualified Data.Set as S
 import           Data.Vessel
@@ -227,7 +229,7 @@ withConnection c k = forM (_localFrontendRequestContext_connection c) $
   k <=< liftIO . readMVar
 
 withConnectionTransaction
-  :: MonadIO m
+  :: (MonadIO m, Reflex t)
   => LocalFrontendRequestContext t
   -> (Sqlite.Connection -> IO a)
   -> m (Maybe a)
@@ -236,8 +238,47 @@ withConnectionTransaction c k =
     conn <- readMVar mvc
     Sqlite.withTransaction conn $ k conn
 
+handleQueryUpdates
+  :: Reflex t
+  => LocalFrontendRequestContext t
+  -> TChan (FrontendV (Const SelectedCount))
+  -> IO ()
+handleQueryUpdates context queryPatchChan = do
+  forever $ do
+    patch <- readTChanConcat queryPatchChan
+    -- TODO: Crop out negative selected counts in patch.
+    void $ traverseWithKeyV (handleV context) patch
+    return ()
+
+handleV
+  :: forall t f. Reflex t
+  => LocalFrontendRequestContext t
+  -> V f
+  -> f (Const SelectedCount)
+  -> IO (f Identity)
+handleV context k v = case k of
+  V_Login ->
+    fmap (fromMaybe mempty) $ withConnection context $ \conn ->
+      runBeamSqlite conn $ do
+        logins <- runSelectReturningList $ select $ pk <$> all_ (dbLogin db)
+        _ -- TODO: Traverse logins.
+
+readTChanConcat :: Semigroup a => TChan a -> IO a
+readTChanConcat c = atomically (readTChan c) >>= concatWaiting
+  where
+    concatWaiting b = atomically (tryReadTChan c) >>= \case
+      Just a -> concatWaiting $ a <> b
+      Nothing -> return b
+
 runLocalFrontendRequestT
-  :: (Reflex t, MonadFix m, MonadHold t m, TriggerEvent t m, MonadIO m, Prerender js m)
+  :: ( Reflex t
+     , MonadFix m
+     , MonadHold t m
+     , PerformEvent t m
+     , TriggerEvent t m
+     , MonadIO m
+     , Prerender js m
+     )
   => LocalFrontendRequestT t (QueryT t (FrontendV (Const SelectedCount)) m) a
   -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
@@ -250,13 +291,20 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
   (queryResultPatch, updateQueryResult) <- newTriggerEvent
   rec let dq = incrementalToDynamic q
+          queryPatch = updatedIncremental q
+          context = LocalFrontendRequestContext
+            { _localFrontendRequestContext_connection = conn
+            , _localFrontendRequestContext_currentQuery = current dq
+            , _localFrontendRequestContext_updateQueryResult = updateQueryResult
+            , _localFrontendRequestContext_logger = logger
+            }
       queryResult <- cropDyn dq queryResultPatch
-      (a, q) <- flip runQueryT queryResult $ runReaderT m $ LocalFrontendRequestContext
-        { _localFrontendRequestContext_connection = conn
-        , _localFrontendRequestContext_currentQuery = current dq
-        , _localFrontendRequestContext_updateQueryResult = updateQueryResult
-        , _localFrontendRequestContext_logger = logger
-        }
+      (a, q) <- flip runQueryT queryResult $ runReaderT m context
+  prerender blank $ do
+    queryPatchChan <- liftIO newTChanIO
+    performEvent_ $ ffor queryPatch $ \qp -> liftIO $
+      atomically $ writeTChan queryPatchChan $ unAdditivePatch qp
+    liftIO $ void $ forkIO $ handleQueryUpdates context queryPatchChan
   return a
 
 -- TODO: Expose this in reflex (currently it's hidden in reflex-dom).

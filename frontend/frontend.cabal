@@ -21,6 +21,7 @@ library
                , obelisk-generated-static
                , reflex-dom
                , semantic-reflex
+               , stm
                , text
                , these
                , vessel
