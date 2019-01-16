@@ -46,6 +46,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'POST
        '[ 'Left "createRoom" ]
+       '[ ]
        'True
        CreateRoomRequest
        CreateRoomRespKey
@@ -53,6 +54,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "directory", 'Left "room", 'Right RoomAlias ]
+       '[ ]
        'True
        PutRoomAliasRequest
        PutRoomAliasRespKey
@@ -60,6 +62,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'GET
        '[ 'Left "directory", 'Left "room", 'Right RoomAlias ]
+       '[ ]
        'False
        GetRoomAliasRequest
        GetRoomAliasRespKey
@@ -67,6 +70,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'DELETE
        '[ 'Left "directory", 'Left "room", 'Right RoomAlias ]
+       '[ ]
        'True
        DeleteRoomAliasRequest
        DeleteRoomAliasRespKey
@@ -74,6 +78,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'GET
        '[ 'Left "joined_rooms" ]
+       '[ ]
        'True
        JoinedRoomsRequest
        JoinedRoomsRespKey
@@ -81,6 +86,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "invite" ]
+       '[ ]
        'True
        InviteRequest
        InviteRespKey
@@ -88,6 +94,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "join" ]
+       '[ ]
        'True
        JoinRequest
        JoinRespKey
@@ -95,6 +102,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "join", 'Right RoomIdOrAlias ]
+       '[ ]
        'True
        Join'Request
        Join'RespKey
@@ -102,6 +110,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "leave" ]
+       '[ ]
        'True
        LeaveRequest
        LeaveRespKey
@@ -109,6 +118,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "forget" ]
+       '[ ]
        'True
        ForgetRequest
        ForgetRespKey
@@ -116,6 +126,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "kick" ]
+       '[ ]
        'True
        KickRequest
        KickRespKey
@@ -123,6 +134,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "ban" ]
+       '[ ]
        'True
        BanRequest
        BanRespKey
@@ -130,6 +142,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "unban" ]
+       '[ ]
        'True
        UnbanRequest
        UnbanRespKey
@@ -137,6 +150,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'GET
        '[ 'Left "directory", 'Left "list", 'Right RoomId ]
+       '[ ]
        'True
        GetRoomListingRequest
        GetRoomListingRespKey
@@ -144,6 +158,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'PUT
        '[ 'Left "directory", 'Left "list", 'Right RoomId ]
+       '[ ]
        'True
        PutRoomListingRequest
        PutRoomListingRespKey
@@ -151,6 +166,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'GET
        '[ 'Left "publicRooms" ]
+       '[ ]
        'True
        PublicRoomsRequest
        PublicRoomsRespKey
@@ -158,6 +174,7 @@ data RoomRoute :: Route where
     :: RoomRoute
        'POST
        '[ 'Left "publicRooms" ]
+       '[ ]
        'True
        PublicRooms'Request
        PublicRooms'RespKey

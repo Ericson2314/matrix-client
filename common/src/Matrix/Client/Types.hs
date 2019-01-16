@@ -30,50 +30,56 @@ type Prefix r = 'Left "_matrix" ': 'Left "client" ': 'Left "r0" ': r
 -- | The Matrix interface for the client to talk to the surver.
 data ClientServerRoute :: Route where
   ClientServerRoute_Login
-    :: LoginRoute httpType route needsAuth request respPerCode
+    :: LoginRoute httpType route queryParams needsAuth request respPerCode
     -> ClientServerRoute
        httpType
        (Prefix route)
+       queryParams
        needsAuth
        request
        respPerCode
   ClientServerRoute_Account
-    :: AccountRoute httpType route needsAuth request respPerCode
+    :: AccountRoute httpType route queryParams needsAuth request respPerCode
     -> ClientServerRoute
        httpType
        (Prefix route)
+       queryParams
        needsAuth
        request
        respPerCode
   ClientServerRoute_Filter
-    :: FilterRoute httpType route needsAuth request respPerCode
+    :: FilterRoute httpType route queryParams needsAuth request respPerCode
     -> ClientServerRoute
        httpType
        (Prefix route)
+       queryParams
        needsAuth
        request
        respPerCode
   ClientServerRoute_Event
-    :: EventRoute httpType route needsAuth request respPerCode
+    :: EventRoute httpType route queryParams needsAuth request respPerCode
     -> ClientServerRoute
        httpType
        (Prefix route)
+       queryParams
        needsAuth
        request
        respPerCode
   ClientServerRoute_Room
-    :: RoomRoute httpType route needsAuth request respPerCode
+    :: RoomRoute httpType route queryParams needsAuth request respPerCode
     -> ClientServerRoute
        httpType
        (Prefix route)
+       queryParams
        needsAuth
        request
        respPerCode
   ClientServerRoute_UserData
-    :: UserDataRoute httpType route needsAuth request respPerCode
+    :: UserDataRoute httpType route queryParams needsAuth request respPerCode
     -> ClientServerRoute
        httpType
        (Prefix route)
+       queryParams
        needsAuth
        request
        respPerCode

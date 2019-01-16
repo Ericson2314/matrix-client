@@ -197,18 +197,39 @@ instance ReifyMethod 'POST where
 instance ReifyMethod 'DELETE where
   reifyMethod = DELETE
 
+type QueryParams = [(Symbol, Type)]
+
+data QPList :: [(Symbol, Type)] -> Type where
+  QPList_Nil
+    :: QPList '[]
+  QPList_Cons
+    :: (KnownSymbol s, ToRoutePiece t)
+    => Proxy s
+    -> Maybe t -- all query params are optional for now
+    -> QPList l
+    -> QPList ('(s, t) : l)
+
 type RespRelation = Nat -> Type -> Type
 
 type Route
   =  Method
   -> RoutePath
+  -> QueryParams
   -> Bool
   -> Type
   -> RespRelation
   -> Type
 
 performRoutedRequest
-  :: forall (routeRelation :: Route) js m (method :: Method) (route :: RoutePath) (needsAuth :: Bool) request (respPerCode :: RespRelation)
+  :: forall
+       (routeRelation :: Route)
+       js m
+       (method :: Method)
+       (route :: RoutePath)
+       (queryParams :: QueryParams)
+       (needsAuth :: Bool)
+       request
+       (respPerCode :: RespRelation)
   .  ( JSConstraints js m
      , KnownRoute route
      , KnownNeedsAuth needsAuth
@@ -218,15 +239,33 @@ performRoutedRequest
      , DecidablableLookup respPerCode
      , ReifyMethod method
      )
-  => routeRelation method route needsAuth request respPerCode
+  => routeRelation method route queryParams needsAuth request respPerCode
   -> Text -- ^ Home Server base URL
-  -> (AuthFunctor needsAuth
-      (request
-       -> RouteFunctor route ((XhrResponseParse respPerCode -> IO ())
-                              -> m ())))
+  -> (AuthFunctor
+        needsAuth
+        (request
+         -> RouteFunctor route
+                         (QPList queryParams
+                          -> (XhrResponseParse respPerCode -> IO ())
+                          -> m ())))
 performRoutedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
   (\mAuth r -> _knownRoute_fmaplike @route
-    (\(routeList :: [Text]) k -> performXhrCallbackWithErrorJSON
-      @js @m @request @respPerCode (methodToText $ reifyMethod @method) (T.intercalate "/" $ hs : routeList) mAuth r k)
+    (\(routeList :: [Text]) (qps :: QPList queryParams) k -> do
+        let
+          method = methodToText $ reifyMethod @method
+          f :: QPList qps -> [Text]
+          f QPList_Nil =
+            []
+          f (QPList_Cons (Proxy :: Proxy sym) (mv :: Maybe v) qps') = case mv of
+            Nothing -> rest
+            Just v -> (reifyText @sym <> "=" <> toRoute v) : rest
+            where rest = f qps'
+          qparams :: Text
+          qparams = case qps of
+            QPList_Nil -> ""
+            _ -> "?" <> T.intercalate "&" (f qps)
+          url = (T.intercalate "/" $ hs : routeList) <> qparams
+        performXhrCallbackWithErrorJSON @js @m @request @respPerCode
+          method url mAuth r k)
     (reifyRoute @route))
   (makeToken @needsAuth)

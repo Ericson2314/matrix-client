@@ -103,6 +103,7 @@ data FilterRoute :: Route where
     :: FilterRoute
        'POST
        '[ 'Left "user", 'Right UserId, 'Left "filter" ]
+       '[ ]
        'True
        PutFilterRequest
        PutFilterRespKey
@@ -110,6 +111,7 @@ data FilterRoute :: Route where
     :: FilterRoute
        'GET
        '[ 'Left "user", 'Right UserId, 'Left "filter", 'Right FilterId ]
+       '[ ]
        'True
        GetFilterRequest
        GetFilterRespKey

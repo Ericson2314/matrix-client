@@ -163,7 +163,7 @@ handleLocalFrontendRequest k c = \case
           (Login_Password pw)
           Nothing
           Nothing
-    performRoutedRequest (ClientServerRoute_Login LoginRoute_Login) hs loginRequest $ cvtE $ \sentinel r -> case sentinel of
+    performRoutedRequest (ClientServerRoute_Login LoginRoute_Login) hs loginRequest QPList_Nil $ cvtE $ \sentinel r -> case sentinel of
       LoginRespKey_400 -> pure $ Left $ FrontendError_ResponseError r
       LoginRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       LoginRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
@@ -197,7 +197,7 @@ handleLocalFrontendRequest k c = \case
           ]
         pure $ Right $ r ^. loginResponse_accessToken
   FrontendRequest_JoinRoom hs token room -> do
-    performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hs token (JoinRequest Nothing) room $ cvtE $ \sentinal r -> case sentinal of
+    performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hs token (JoinRequest Nothing) room QPList_Nil $ cvtE $ \sentinal r -> case sentinal of
       JoinRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_200 -> do

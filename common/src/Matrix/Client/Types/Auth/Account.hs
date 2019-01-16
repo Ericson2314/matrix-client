@@ -40,6 +40,7 @@ data AccountRoute :: Route where
     :: AccountRoute
        'POST
        '[ 'Left "register" ]
+       '[ ]
        'False
        RegisterRequest
        RegisterRespKey
@@ -47,6 +48,7 @@ data AccountRoute :: Route where
     :: AccountRoute
        'POST
        '[ 'Left "register", 'Left "email", 'Left "requestToken" ]
+       '[ ]
        'False
        EmailRequestTokenRequest
        EmailRequestTokenRespKey
@@ -54,6 +56,7 @@ data AccountRoute :: Route where
     :: AccountRoute
        'POST
        '[ 'Left "register", 'Left "msisdn", 'Left "requestToken" ]
+       '[ ]
        'False
        PhoneRequestTokenRequest
        PhoneRequestTokenRespKey
@@ -61,6 +64,7 @@ data AccountRoute :: Route where
     :: AccountRoute
        'POST
        '[ 'Left "account", 'Left "deactivate" ]
+       '[ ]
        'True
        DeactivateRequest
        DeactivateRespKey
@@ -68,14 +72,16 @@ data AccountRoute :: Route where
     :: AccountRoute
        'GET
        '[ 'Left "register", 'Left "available" ]
+       '[ ]
        'False
        AvailableRequest
        AvailableRespKey
   AccountRoute_ThirdParty
-    :: Account3PIdRoute httpType route needsAuth request respPerCode
+    :: Account3PIdRoute httpType route queryParams needsAuth request respPerCode
     -> AccountRoute
        httpType
        ('Left "account" ': 'Left "3pid" ': route)
+       queryParams
        needsAuth
        request
        respPerCode
@@ -83,6 +89,7 @@ data AccountRoute :: Route where
     :: AccountRoute
        'GET
        '[ 'Left "register", 'Left "available" ]
+       '[ ]
        'True
        WhoAmIRequest
        WhoAmIRespKey

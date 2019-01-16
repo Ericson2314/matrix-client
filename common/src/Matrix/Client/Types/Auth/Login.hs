@@ -31,6 +31,7 @@ data LoginRoute :: Route where
     :: LoginRoute
        'GET
        '[ 'Left "login" ]
+       '[ ]
        'False
        Login'Request
        Login'RespKey
@@ -38,6 +39,7 @@ data LoginRoute :: Route where
     :: LoginRoute
        'POST
        '[ 'Left "login" ]
+       '[ ]
        'False
        LoginRequest
        LoginRespKey
@@ -45,6 +47,7 @@ data LoginRoute :: Route where
     :: LoginRoute
        'POST
        '[ 'Left "logout" ]
+       '[ ]
        'True
        LogoutRequest
        LogoutRespKey
@@ -52,6 +55,7 @@ data LoginRoute :: Route where
     :: LoginRoute
        'POST
        '[ 'Left "logout", 'Left "all" ]
+       '[ ]
        'True
        LogoutAllRequest
        LogoutAllRespKey

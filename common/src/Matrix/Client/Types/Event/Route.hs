@@ -28,6 +28,7 @@ data EventRoute :: Route where
     :: EventRoute
        'GET
        '[ 'Left "sync"]
+       '[ ]
        'True
        SyncRequest
        SyncRespKey
@@ -35,6 +36,7 @@ data EventRoute :: Route where
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "event", 'Right EventId ]
+       '[ ]
        'True
        GetRoomEventRequest
        GetRoomEventRespKey
@@ -43,6 +45,7 @@ data EventRoute :: Route where
     => EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)), 'Right StateKey ]
+       '[ ]
        'True
        GetRoomStateRequest
        (GetRoomStateRespKey body)
@@ -51,6 +54,7 @@ data EventRoute :: Route where
     => EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)) ]
+       '[ ]
        'True
        GetRoomStateRequest
        (GetRoomStateRespKey body)
@@ -58,6 +62,7 @@ data EventRoute :: Route where
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "state" ]
+       '[ ]
        'True
        GetRoomStateAllRequest
        GetRoomStateAllRespKey
@@ -65,6 +70,7 @@ data EventRoute :: Route where
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "members" ]
+       '[ ]
        'True
        GetRoomMembersRequest
        GetRoomMembersRespKey
@@ -72,6 +78,7 @@ data EventRoute :: Route where
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "joined_members" ]
+       '[ ]
        'True
        GetRoomJoinedMembersRequest
        GetRoomJoinedMembersRespKey
@@ -79,6 +86,7 @@ data EventRoute :: Route where
     :: EventRoute
        'GET
        '[ 'Left "rooms", 'Right RoomId, 'Left "messages" ]
+       '[ ]
        'True
        GetRoomMessagesRequest
        GetRoomMessagesRespKey
@@ -87,6 +95,7 @@ data EventRoute :: Route where
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)), 'Right StateKey ]
+       '[ ]
        'True
        body
        PutRoomRespKey
@@ -95,6 +104,7 @@ data EventRoute :: Route where
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "state", 'Right (EventType '(meta, body)) ]
+       '[ ]
        'True
        body
        PutRoomRespKey
@@ -103,6 +113,7 @@ data EventRoute :: Route where
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "send", 'Right (EventType '(meta, body)), 'Right TxnId ]
+       '[ ]
        'True
        body
        PutRoomRespKey
@@ -111,6 +122,7 @@ data EventRoute :: Route where
     => EventRoute
        'PUT
        '[ 'Left "rooms", 'Right RoomId, 'Left "redact", 'Right (EventType '(meta, body)), 'Right TxnId ]
+       '[ ]
        'True
        RedactionEventContent
        PutRoomRedactionRespKey

@@ -24,6 +24,7 @@ data UserDataRoute :: Route where
     :: UserDataRoute
        'POST
        '[ 'Left "user_directory", 'Left "search" ]
+       '[ ]
        'True
        UserSearchRequest
        UserSearchRespKey
@@ -31,6 +32,7 @@ data UserDataRoute :: Route where
     :: UserDataRoute
        'PUT
        '[ 'Left "profile", 'Right UserId, 'Left "displayname" ]
+       '[ ]
        'True
        PutDisplayNameRequest
        PutDisplayNameRespKey
@@ -38,6 +40,7 @@ data UserDataRoute :: Route where
     :: UserDataRoute
        'GET
        '[ 'Left "profile", 'Right UserId, 'Left "displayname" ]
+       '[ ]
        'False
        GetDisplayNameRequest
        GetDisplayNameRespKey
@@ -45,6 +48,7 @@ data UserDataRoute :: Route where
     :: UserDataRoute
        'PUT
        '[ 'Left "profile", 'Right UserId, 'Left "avatar_url" ]
+       '[ ]
        'True
        PutAvatarUrlRequest
        PutAvatarUrlRespKey
@@ -52,6 +56,7 @@ data UserDataRoute :: Route where
     :: UserDataRoute
        'GET
        '[ 'Left "profile", 'Right UserId, 'Left "avatar_url" ]
+       '[ ]
        'False
        GetAvatarUrlRequest
        GetAvatarUrlRespKey

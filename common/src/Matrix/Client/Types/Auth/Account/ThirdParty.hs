@@ -24,12 +24,14 @@ data Account3PIdRoute :: Route where
     :: Account3PIdRoute
        'GET
        '[ ]
+       '[ ]
        'True
        Get3PIdRequest
        Get3PIdRespKey
   Account3PIdRoute_Add
     :: Account3PIdRoute
        'POST
+       '[ ]
        '[ ]
        'True
        Add3PIdRequest
@@ -38,6 +40,7 @@ data Account3PIdRoute :: Route where
     :: Account3PIdRoute
        'POST
        '[ 'Left "delete" ]
+       '[ ]
        'True
        Delete3PIdRequest
        Delete3PIdRespKey
@@ -45,6 +48,7 @@ data Account3PIdRoute :: Route where
     :: Account3PIdRoute
        'POST
        '[ 'Left "email", 'Left "requestToken" ]
+       '[ ]
        'False
        EmailRequestTokenRequest
        EmailRequestTokenRespKey
@@ -52,6 +56,7 @@ data Account3PIdRoute :: Route where
     :: Account3PIdRoute
        'POST
        '[ 'Left "msisdn", 'Left "requestToken" ]
+       '[ ]
        'False
        PhoneRequestTokenRequest
        PhoneRequestTokenRespKey
