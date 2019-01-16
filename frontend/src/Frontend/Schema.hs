@@ -26,10 +26,10 @@ makeLenses ''Login
 
 -- Until https://github.com/tathougies/beam/issues/262 is resolved, this is too
 -- annoying.
-type instance Key Login = Id Text -- M.UserId
+type instance KeyT Login = Id Text -- M.UserId
 
 data Db f = Db
-  { dbLogin :: f (TableEntity (Entity Login))
+  { dbLogin :: f (TableEntity (EntityT Login))
   } deriving (Generic, Database be)
 
 db :: DatabaseSettings Sqlite Db

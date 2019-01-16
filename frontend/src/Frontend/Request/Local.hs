@@ -190,10 +190,10 @@ handleLocalFrontendRequest k c = \case
         $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
         lift $ patchQueryResult c $ mconcat
           [ singletonV V_Login $ MapV $
-              MM.singleton uid' $ Identity $ First $ Just newValue
+              MM.singleton (EntityKey uid') $ Identity $ First $ Just newValue
           -- TODO: Add accessor for value inside `EntityKey`.
           , singletonV V_Logins $ SingleV $ Identity $ First $
-              S.fromList . fmap (\(EntityKey x) -> x) <$> lids
+              S.fromList <$> lids
           ]
         pure $ Right $ r ^. loginResponse_accessToken
   FrontendRequest_JoinRoom hs token room -> do

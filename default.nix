@@ -13,6 +13,8 @@ project ./. ({ pkgs, hackGet, ... }: {
     dependent-map = hackGet ./dep/dependent-map;
     dependent-monoidal-map = hackGet ./dep/dependent-monoidal-map;
     dependent-sum-aeson-orphans = hackGet ./dep/dependent-sum-aeson-orphans;
+    # TODO: Remove once https://github.com/reflex-frp/reflex/pull/245 is in obelisk.
+    reflex = hackGet ./dep/reflex;
     semantic-reflex = (hackGet ./dep/semantic-reflex) + /semantic-reflex;
     vessel = hackGet ./dep/vessel;
   };
@@ -20,6 +22,8 @@ project ./. ({ pkgs, hackGet, ... }: {
     # TODO: Upstream these version bounds.
     dependent-sum-aeson-orphans = pkgs.haskell.lib.doJailbreak super.dependent-sum-aeson-orphans;
     dependent-monoidal-map = pkgs.haskell.lib.doJailbreak super.dependent-monoidal-map;
+    # TODO: Remove once upstream is used via obelisk.
+    reflex = pkgs.haskell.lib.dontCheck super.reflex;
     semantic-reflex = pkgs.haskell.lib.dontHaddock super.semantic-reflex;
   };
 })
