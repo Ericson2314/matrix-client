@@ -269,3 +269,51 @@ performRoutedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
           method url mAuth r k)
     (reifyRoute @route))
   (makeToken @needsAuth)
+
+routedRequest
+  :: forall
+       (routeRelation :: Route)
+       m
+       (method :: Method)
+       (route :: RoutePath)
+       (queryParams :: QueryParams)
+       (needsAuth :: Bool)
+       request
+       (respPerCode :: RespRelation)
+  .  ( MonadIO m
+     , KnownRoute route
+     , KnownNeedsAuth needsAuth
+     , ToJSON request
+     -- , GetStatusKey respPerCode
+     , RespTyConstr FromJSON respPerCode
+     , DecidablableLookup respPerCode
+     , ReifyMethod method
+     )
+  => routeRelation method route queryParams needsAuth request respPerCode
+  -> Text -- ^ Home Server base URL
+  -> (AuthFunctor
+        needsAuth
+        (request
+         -> RouteFunctor route
+                         (QPList queryParams
+                          -> m (XhrResponseParse respPerCode))))
+routedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
+  (\mAuth r -> _knownRoute_fmaplike @route
+    (\(routeList :: [Text]) (qps :: QPList queryParams) -> do
+        let
+          method = methodToText $ reifyMethod @method
+          f :: QPList qps -> [Text]
+          f QPList_Nil =
+            []
+          f (QPList_Cons (Proxy :: Proxy sym) (mv :: Maybe v) qps') = case mv of
+            Nothing -> rest
+            Just v -> (reifyText @sym <> "=" <> toRoute v) : rest
+            where rest = f qps'
+          qparams :: Text
+          qparams = case qps of
+            QPList_Nil -> ""
+            _ -> "?" <> T.intercalate "&" (f qps)
+          url = (T.intercalate "/" $ hs : routeList) <> qparams
+        return @m _)
+    (reifyRoute @route))
+  (makeToken @needsAuth)
