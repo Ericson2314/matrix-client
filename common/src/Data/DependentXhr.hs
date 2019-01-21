@@ -249,7 +249,7 @@ performRoutedRequest
                           -> (XhrResponseParse respPerCode -> IO ())
                           -> m ())))
 performRoutedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
-  (\mAuth r -> _knownRoute_fmaplike @route
+  (\(mAuth :: Maybe AccessToken) (r :: request) -> _knownRoute_fmaplike @route
     (\(routeList :: [Text]) (qps :: QPList queryParams) k -> do
         let
           method = methodToText $ reifyMethod @method
@@ -298,7 +298,7 @@ routedRequest
                          (QPList queryParams
                           -> m (XhrResponseParse respPerCode))))
 routedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
-  (\mAuth r -> _knownRoute_fmaplike @route
+  (\(mAuth :: Maybe AccessToken) (r :: request) -> _knownRoute_fmaplike @route
     (\(routeList :: [Text]) (qps :: QPList queryParams) -> do
         let
           method = methodToText $ reifyMethod @method
@@ -314,6 +314,6 @@ routedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
             QPList_Nil -> ""
             _ -> "?" <> T.intercalate "&" (f qps)
           url = (T.intercalate "/" $ hs : routeList) <> qparams
-        return @m _)
+        return @m (_ :: XhrResponseParse respPerCode))
     (reifyRoute @route))
   (makeToken @needsAuth)
