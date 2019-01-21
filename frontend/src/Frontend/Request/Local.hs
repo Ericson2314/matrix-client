@@ -163,7 +163,8 @@ handleLocalFrontendRequest k c = \case
           (Login_Password pw)
           Nothing
           Nothing
-    performRoutedRequest (ClientServerRoute_Login LoginRoute_Login) hs loginRequest QPList_Nil $ cvtE $ \sentinel r -> case sentinel of
+        hsText = "https://" <> printServerName hs
+    performRoutedRequest (ClientServerRoute_Login LoginRoute_Login) hsText loginRequest QPList_Nil $ cvtE $ \sentinel r -> case sentinel of
       LoginRespKey_400 -> pure $ Left $ FrontendError_ResponseError r
       LoginRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       LoginRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
@@ -171,7 +172,7 @@ handleLocalFrontendRequest k c = \case
         let uid = r ^. loginResponse_userId
             uid' = Id $ printUserId uid
             newValue = Login
-              { _login_homeServer = hs
+              { _login_homeServer = hsText
               , _login_accessToken = Just $ r ^. loginResponse_accessToken
               , _login_deviceId = Just $ r ^. loginResponse_deviceId
               , _login_isActive = True
@@ -197,7 +198,8 @@ handleLocalFrontendRequest k c = \case
           ]
         pure $ Right $ r ^. loginResponse_accessToken
   FrontendRequest_JoinRoom hs token room -> do
-    performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hs token (JoinRequest Nothing) room QPList_Nil $ cvtE $ \sentinal r -> case sentinal of
+    let hsText = "https://" <> printServerName hs
+    performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hsText token (JoinRequest Nothing) room QPList_Nil $ cvtE $ \sentinal r -> case sentinal of
       JoinRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_200 -> do

@@ -6,6 +6,7 @@ import Data.Aeson.Utils
 import Data.DependentXhr
 import Data.Kind
 import Data.Text (Text)
+import Data.Word
 import Obelisk.Route.Frontend
 import Reflex
 import Reflex.Dom.Core (XhrException)
@@ -25,14 +26,14 @@ data FrontendError e
 
 data FrontendRequest :: Type -> Type where
   FrontendRequest_Login
-    :: Text -- ^ home server
+    :: ServerName -- ^ home server
     -> Text -- ^ user name
     -> Text -- ^ password
     -> FrontendRequest (Either (FrontendError Value) AccessToken)
     -- ^ TODO be better than `Value` here
     -- ^ TODO change 'AccessToken' back to '()' once views are implemented.
   FrontendRequest_JoinRoom
-    :: Text -- ^ home server
+    :: ServerName -- ^ home server
     -> AccessToken
     -> RoomId -- ^ The room
     -> FrontendRequest (Either (FrontendError Value) ()) -- TODO be better than `Value` here

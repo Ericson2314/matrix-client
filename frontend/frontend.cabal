@@ -18,6 +18,7 @@ library
                , monad-logger
                , monoidal-containers
                , reflex-dom
+               , reflex-dom-forms
                , obelisk-generated-static
                , reflex-dom
                , semantic-reflex

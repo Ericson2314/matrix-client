@@ -15,6 +15,7 @@ project ./. ({ pkgs, hackGet, ... }: {
     dependent-sum-aeson-orphans = hackGet ./dep/dependent-sum-aeson-orphans;
     # TODO: Remove once https://github.com/reflex-frp/reflex/pull/245 is in obelisk.
     reflex = hackGet ./dep/reflex;
+    reflex-dom-forms = hackGet ./dep/reflex-dom-forms;
     semantic-reflex = (hackGet ./dep/semantic-reflex) + /semantic-reflex;
     vessel = hackGet ./dep/vessel;
   };
