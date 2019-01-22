@@ -151,7 +151,7 @@ data RoomRoute :: Route where
        'GET
        '[ 'Left "directory", 'Left "list", 'Right RoomId ]
        '[ ]
-       'True
+       'False
        GetRoomListingRequest
        GetRoomListingRespKey
   RoomRoute_PutRoomListing
@@ -167,7 +167,7 @@ data RoomRoute :: Route where
        'GET
        '[ 'Left "publicRooms" ]
        '[ ]
-       'True
+       'False
        PublicRoomsRequest
        PublicRoomsRespKey
   RoomRoute_PublicRooms'
