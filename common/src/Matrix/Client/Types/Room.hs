@@ -630,7 +630,7 @@ data PublicRoomInfo = PublicRoomInfo
   , _publicRoomInfo_topic :: Maybe Text
   , _publicRoomInfo_worldReadable :: Bool
   , _publicRoomInfo_guestCanJoin :: Bool
-  , _publicRoomInfo_avatarUrl :: MatrixUri
+  , _publicRoomInfo_avatarUrl :: Maybe MatrixUri
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON PublicRoomInfo where
