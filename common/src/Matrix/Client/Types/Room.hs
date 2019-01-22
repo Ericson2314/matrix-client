@@ -166,7 +166,10 @@ data RoomRoute :: Route where
     :: RoomRoute
        'GET
        '[ 'Left "publicRooms" ]
-       '[ ]
+       '[ '("limit", Word32)
+        , '("since", Text)
+        , '("server", ServerName)
+        ]
        'False
        PublicRoomsRequest
        PublicRoomsRespKey
@@ -600,6 +603,18 @@ instance ToJSON PutRoomListingResponse where
 
 data PublicRoomsRespKey :: RespRelation where
   PublicRoomsRespKey_200 :: PublicRoomsRespKey 200 PublicRoomsResponse
+
+instance DecidablableLookup PublicRoomsRespKey where
+  -- TODO handle other cases, make some TH for this.
+  liftedLookup
+    :: forall status
+    .  KnownNat status
+    => Decision (Some (PublicRoomsRespKey status))
+  liftedLookup = case
+      sameNat (Proxy :: Proxy status)
+              (Proxy :: Proxy 200)
+    of
+      Just Refl -> Proved $ This PublicRoomsRespKey_200
 
 data PublicRoomsRequest = PublicRoomsRequest
   deriving (Eq, Ord, Show, Generic)

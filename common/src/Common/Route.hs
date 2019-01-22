@@ -20,6 +20,7 @@ data BackendRoute :: * -> * where
 data FrontendRoute :: * -> * where
   FrontendRoute_Home :: FrontendRoute ()
   FrontendRoute_Login :: FrontendRoute ()
+  FrontendRoute_ListPublicRooms :: FrontendRoute ()
 
 backendRouteEncoder
   :: Encoder (Either Text) Identity (R (Sum BackendRoute (ObeliskRoute FrontendRoute))) PageName
@@ -30,6 +31,7 @@ backendRouteEncoder = handleEncoder (const (InL BackendRoute_Missing :/ ())) $
     InR obeliskRoute -> obeliskRouteSegment obeliskRoute $ \case
       FrontendRoute_Home -> PathEnd $ unitEncoder mempty
       FrontendRoute_Login -> PathSegment "login" $ unitEncoder mempty
+      FrontendRoute_ListPublicRooms -> PathSegment "publicRooms" $ unitEncoder mempty
 
 concat <$> mapM deriveRouteComponent
   [ ''BackendRoute
