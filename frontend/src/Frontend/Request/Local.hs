@@ -258,7 +258,9 @@ handleQueryUpdates context queryPatchChan = do
   forever $ do
     patch <- readTChanConcat queryPatchChan
     -- TODO: Crop out negative selected counts in patch.
-    void $ traverseWithKeyV (handleV context) patch
+    patch' <- traverseWithKeyV (handleV context) patch
+    -- TODO why does this loop JSaddle making it hang?
+    --patchQueryResult context patch'
     return ()
 
 handleV
