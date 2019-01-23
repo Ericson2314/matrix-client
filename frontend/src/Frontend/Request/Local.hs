@@ -188,12 +188,11 @@ handleLocalFrontendRequest k c = \case
           case old of
             Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
             Just _ -> runUpdate $ save (dbLogin db) newEntity
-          runSelectReturningList $ select $ pk <$> all_ (dbLogin db)
+          runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
         $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
         lift $ patchQueryResult c $ mconcat
           [ singletonV V_Login $ MapV $
-              MM.singleton (EntityKey uid') $ Identity $ First $ Just newValue
-          -- TODO: Add accessor for value inside `EntityKey`.
+              MM.singleton uid' $ Identity $ First $ Just newValue
           , singletonV V_Logins $ SingleV $ Identity $ First $
               S.fromList <$> lids
           ]
@@ -276,15 +275,13 @@ handleV context gadtKey v = case gadtKey of
           login <- all_ (dbLogin db)
           guard_ $ in_
             (getId $ _entity_key login)
-            -- TODO: Add accessor for value inside `EntityKey`.
-            (fmap (val_ . getId . (\(EntityKey k) -> k)) $ MM.keys $ unMapV v)
+            (fmap (val_ . getId) $ MM.keys $ unMapV v)
           pure login
-        pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) ->
-          (EntityKey k, Identity $ First $ Just v)
+        pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (k, Identity $ First $ Just v)
   V_Logins ->
     fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection context $ \conn ->
       runBeamSqlite conn $ do
-        logins <- runSelectReturningList $ select $ pk <$> all_ (dbLogin db)
+        logins <- runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
         pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
 
 readTChanConcat :: Semigroup a => TChan a -> IO a
