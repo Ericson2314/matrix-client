@@ -251,17 +251,22 @@ handleQueryUpdates context queryPatchChan = do
     return ()
 
 handleV
-  :: forall t f. Reflex t
+  :: forall t f p. Reflex t
   => LocalFrontendRequestContext t
   -> V f
-  -> f (Const SelectedCount)
+  -> f p -- (Const SelectedCount)
   -> IO (f Identity)
 handleV context k v = case k of
   V_Login ->
-    fmap (fromMaybe mempty) $ withConnection context $ \conn ->
+    fmap (fromMaybe $ MapV MM.empty) $ withConnection context $ \conn ->
+      runBeamSqlite conn $ do
+        logins <- runSelectReturningList $ select $ all_ (dbLogin db)
+        pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (EntityKey k, Identity $ First $ Just v)
+  V_Logins ->
+    fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection context $ \conn ->
       runBeamSqlite conn $ do
         logins <- runSelectReturningList $ select $ pk <$> all_ (dbLogin db)
-        _ -- TODO: Traverse logins.
+        pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
 
 readTChanConcat :: Semigroup a => TChan a -> IO a
 readTChanConcat c = atomically (readTChan c) >>= concatWaiting
