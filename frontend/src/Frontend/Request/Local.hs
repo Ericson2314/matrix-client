@@ -268,12 +268,19 @@ handleV
   -> V f
   -> f p -- (Const SelectedCount)
   -> IO (f Identity)
-handleV context k v = case k of
+handleV context gadtKey v = case gadtKey of
   V_Login ->
     fmap (fromMaybe $ MapV MM.empty) $ withConnection context $ \conn ->
       runBeamSqlite conn $ do
-        logins <- runSelectReturningList $ select $ all_ (dbLogin db)
-        pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (EntityKey k, Identity $ First $ Just v)
+        logins <- runSelectReturningList $ select $ do
+          login <- all_ (dbLogin db)
+          guard_ $ in_
+            (getId $ _entity_key login)
+            -- TODO: Add accessor for value inside `EntityKey`.
+            (fmap (val_ . getId . (\(EntityKey k) -> k)) $ MM.keys $ unMapV v)
+          pure login
+        pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) ->
+          (EntityKey k, Identity $ First $ Just v)
   V_Logins ->
     fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection context $ \conn ->
       runBeamSqlite conn $ do
