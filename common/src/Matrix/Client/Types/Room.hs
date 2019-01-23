@@ -151,7 +151,7 @@ data RoomRoute :: Route where
        'GET
        '[ 'Left "directory", 'Left "list", 'Right RoomId ]
        '[ ]
-       'True
+       'False
        GetRoomListingRequest
        GetRoomListingRespKey
   RoomRoute_PutRoomListing
@@ -167,7 +167,7 @@ data RoomRoute :: Route where
        'GET
        '[ 'Left "publicRooms" ]
        '[ ]
-       'True
+       'False
        PublicRoomsRequest
        PublicRoomsRespKey
   RoomRoute_PublicRooms'
@@ -630,7 +630,7 @@ data PublicRoomInfo = PublicRoomInfo
   , _publicRoomInfo_topic :: Maybe Text
   , _publicRoomInfo_worldReadable :: Bool
   , _publicRoomInfo_guestCanJoin :: Bool
-  , _publicRoomInfo_avatarUrl :: MatrixUri
+  , _publicRoomInfo_avatarUrl :: Maybe MatrixUri
   } deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON PublicRoomInfo where

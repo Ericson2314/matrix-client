@@ -149,9 +149,7 @@ printRoomName = getRoomName
 
 -- | TODO find right grammar for this.
 parseRoomName :: Parser RoomName
-parseRoomName = fmap RoomName $ takeWhile1 $ \c -> isDigit c
-  || (ord c >= 0x61 && ord c <= 0x7A)
-  || elem c ['-', '.', '=', '_', '/']
+parseRoomName = fmap RoomName $ takeWhile1 (/= ':')
 
 instance ToRoutePiece RoomName where
   toRoute = printRoomName
@@ -168,8 +166,8 @@ instance FromJSONKey RoomName where
 --------------------------------------------------------------------------------
 
 data RoomAlias = RoomAlias
-  { _userAlias_username :: RoomName
-  , _userAlias_domain :: ServerName
+  { _roomAlias_name :: RoomName
+  , _roomAlias_domain :: ServerName
   }
   deriving (Eq, Ord, Show, Generic)
 makeLenses ''RoomAlias
