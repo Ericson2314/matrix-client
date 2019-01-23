@@ -24,6 +24,7 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding
 import           Data.Void
+import           Data.Word
 import           GHC.Generics
 import           GHC.TypeLits
 import           Language.Javascript.JSaddle.Types
@@ -132,6 +133,12 @@ reifyText = T.pack $ symbolVal $ Proxy @t
 
 class ToRoutePiece t where
   toRoute :: t -> Text
+
+instance ToRoutePiece Text where
+  toRoute = id -- TODO maybe require newtypes by not doing this?
+
+instance ToRoutePiece Word32 where
+  toRoute = T.pack . show
 
 class KnownRoute (route :: RoutePath) where
   type RouteFunctor route x :: Type

@@ -198,8 +198,20 @@ handleLocalFrontendRequest k c = \case
               S.fromList <$> lids
           ]
         pure $ Right $ r ^. loginResponse_accessToken
+  FrontendRequest_ListPublicRooms hs limit since -> do
+    let
+      hsText = "https://" <> printServerName hs
+      qps = QPList_Cons Proxy (Just limit)
+          $ QPList_Cons Proxy since
+          $ QPList_Cons Proxy Nothing
+          $ QPList_Nil
+    performRoutedRequest (ClientServerRoute_Room RoomRoute_PublicRooms) hsText PublicRoomsRequest qps $ cvtE $ \sentinal r -> case sentinal of
+      PublicRoomsRespKey_200 -> do
+        $(logInfo) $ "Got some publicly listed rooms"
+        pure $ Right r
   FrontendRequest_JoinRoom hs token room -> do
-    performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hs token (JoinRequest Nothing) room QPList_Nil $ cvtE $ \sentinal r -> case sentinal of
+    let hsText = "https://" <> printServerName hs
+    performRoutedRequest (ClientServerRoute_Room RoomRoute_Join) hsText token (JoinRequest Nothing) room QPList_Nil $ cvtE $ \sentinal r -> case sentinal of
       JoinRespKey_403 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
       JoinRespKey_200 -> do
