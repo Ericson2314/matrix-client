@@ -20,6 +20,10 @@ data V f where
   V_Login :: V (EntityMapV Login)
   V_Logins :: V (SingleV (Set (Key Login)))
 
+deriving instance Eq (V f)
+deriving instance Ord (V f)
+deriving instance Show (V f)
+
 deriveGEq ''V
 deriveGCompare ''V
 deriveArgDictV ''V
