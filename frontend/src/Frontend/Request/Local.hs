@@ -48,7 +48,6 @@ import           Frontend.Schema
 
 data LocalFrontendRequestContext (t :: Type) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
-  , _localFrontendRequestContext_currentQuery :: Behavior t (FrontendV (Const SelectedCount))
   , _localFrontendRequestContext_updateQueryResult :: FrontendV Identity -> IO ()
   , _localFrontendRequestContext_logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
@@ -317,7 +316,6 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
           queryPatch = updatedIncremental q
           context = LocalFrontendRequestContext
             { _localFrontendRequestContext_connection = conn
-            , _localFrontendRequestContext_currentQuery = current dq
             , _localFrontendRequestContext_updateQueryResult = updateQueryResult
             , _localFrontendRequestContext_logger = logger
             }
