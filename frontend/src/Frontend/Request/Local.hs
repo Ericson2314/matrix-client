@@ -241,7 +241,7 @@ withConnection c k = forM (_localFrontendRequestContext_connection c) $
   k <=< liftIO . readMVar
 
 withConnectionTransaction
-  :: (MonadIO m, Reflex t)
+  :: MonadIO m
   => LocalFrontendRequestContext t
   -> (Sqlite.Connection -> IO a)
   -> m (Maybe a)
@@ -251,8 +251,7 @@ withConnectionTransaction c k =
     Sqlite.withTransaction conn $ k conn
 
 handleQueryUpdates
-  :: Reflex t
-  => LocalFrontendRequestContext t
+  :: LocalFrontendRequestContext t
   -> TChan (FrontendV (Const SelectedCount))
   -> IO ()
 handleQueryUpdates context queryPatchChan = do
@@ -264,12 +263,12 @@ handleQueryUpdates context queryPatchChan = do
     return ()
 
 handleV
-  :: forall t f p. Reflex t
-  => LocalFrontendRequestContext t
+  :: forall t f p
+  .  LocalFrontendRequestContext t
   -> V f
   -> f p -- (Const SelectedCount)
   -> IO (f Identity)
-handleV context gadtKey v = case gadtKey of
+handleV context gadtKey vessel = case gadtKey of
   V_Login ->
     fmap (fromMaybe $ MapV MM.empty) $ withConnection context $ \conn ->
       runBeamSqlite conn $ do
@@ -277,7 +276,7 @@ handleV context gadtKey v = case gadtKey of
           login <- all_ (dbLogin db)
           guard_ $ in_
             (getId $ _entity_key login)
-            (fmap (val_ . getId) $ MM.keys $ unMapV v)
+            (fmap (val_ . getId) $ MM.keys $ unMapV vessel)
           pure login
         pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (k, Identity $ First $ Just v)
   V_Logins ->
@@ -294,8 +293,7 @@ readTChanConcat c = atomically (readTChan c) >>= concatWaiting
       Nothing -> return b
 
 runLocalFrontendRequestT
-  :: ( Reflex t
-     , MonadFix m
+  :: ( MonadFix m
      , MonadHold t m
      , PerformEvent t m
      , TriggerEvent t m
@@ -329,8 +327,3 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
       atomically $ writeTChan queryPatchChan $ unAdditivePatch qp
     liftIO $ void $ forkIO $ handleQueryUpdates context queryPatchChan
   return a
-
--- TODO: Expose this in reflex (currently it's hidden in reflex-dom).
--- Also is cropping here really necessary or will `runQueryT` do it?
-cropDyn :: (Query q, MonadHold t m, Reflex t, MonadFix m) => Dynamic t q -> Event t (QueryResult q) -> m (Dynamic t (QueryResult q))
-cropDyn q = foldDyn (\(q', qr) v -> crop q' (qr `mappend` v)) mempty . attach (current q)
