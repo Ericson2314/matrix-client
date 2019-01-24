@@ -312,15 +312,15 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
   (queryResultPatch, updateQueryResult) <- newTriggerEvent
-  rec let dq = incrementalToDynamic q
-          queryPatch = updatedIncremental q
-          context = LocalFrontendRequestContext
+  rec let context = LocalFrontendRequestContext
             { _localFrontendRequestContext_connection = conn
             , _localFrontendRequestContext_updateQueryResult = updateQueryResult
             , _localFrontendRequestContext_logger = logger
             }
-      queryResult <- cropDyn dq queryResultPatch
-      (a, q) <- flip runQueryT queryResult $ runReaderT m context
+      (a, requestPatch) <- flip runQueryT croppedResult $ runReaderT m context
+      let requestUniq = incrementalToDynamic requestPatch
+      croppedResult <- cropDyn requestUniq queryResultPatch
+  let queryPatch = updatedIncremental requestPatch
   prerender blank $ do
     queryPatchChan <- liftIO newTChanIO
     performEvent_ $ ffor queryPatch $ \qp -> liftIO $
