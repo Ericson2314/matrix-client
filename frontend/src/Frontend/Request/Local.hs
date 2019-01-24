@@ -34,6 +34,8 @@ import           Language.Javascript.JSaddle.Types
 import           Obelisk.Database.Beam.Entity
 import           Obelisk.Route.Frontend
 import           Reflex.Dom.Core hiding (select)
+-- TODO move to reflex. This method doesn't use web stuff.
+import           Reflex.Dom.WebSocket.Query (cropQueryT)
 import           Reflex.Dom.Prerender.Performable
 import           Reflex.Host.Class
 
@@ -312,14 +314,12 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
   (queryResultPatch, updateQueryResult) <- newTriggerEvent
-  rec let context = LocalFrontendRequestContext
-            { _localFrontendRequestContext_connection = conn
-            , _localFrontendRequestContext_updateQueryResult = updateQueryResult
-            , _localFrontendRequestContext_logger = logger
-            }
-      (a, requestPatch) <- flip runQueryT croppedResult $ runReaderT m context
-      requestUniq <- holdUniqDyn $ incrementalToDynamic requestPatch
-      croppedResult <- cropDyn requestUniq queryResultPatch
+  let context = LocalFrontendRequestContext
+        { _localFrontendRequestContext_connection = conn
+        , _localFrontendRequestContext_updateQueryResult = updateQueryResult
+        , _localFrontendRequestContext_logger = logger
+        }
+  (a, requestUniq) <- flip cropQueryT queryResultPatch $ runReaderT m context
   let queryPatch = AdditivePatch <$> updated requestUniq
   prerender blank $ do
     queryPatchChan <- liftIO newTChanIO
