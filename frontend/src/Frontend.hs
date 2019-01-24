@@ -5,7 +5,7 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           Data.Foldable
-import           Data.Maybe (isJust)
+import           Data.Maybe (isNothing)
 import           Data.List.NonEmpty (NonEmpty (..))
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -87,7 +87,7 @@ publicRoomListing = do
         let emSince = view (_Right . sinceLens) <$> resp
         dmSince' <- holdDyn Nothing $ emSince
         pushed <- flip button (text name) $ def
-          { _buttonConfig_disabled = Dyn $ isJust <$> dmSince'
+          { _buttonConfig_disabled = Dyn $ isNothing <$> dmSince'
           }
         pure $ fmapMaybe id $ tag (current dmSince') pushed
     prevSince <- f "Previous" publicRoomsResponse_prevBatch
