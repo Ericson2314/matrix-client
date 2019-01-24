@@ -260,8 +260,7 @@ handleQueryUpdates context queryPatchChan = do
     patch <- readTChanConcat queryPatchChan
     -- TODO: Crop out negative selected counts in patch.
     patch' <- traverseWithKeyV (handleV context) patch
-    -- TODO why does this loop JSaddle making it hang?
-    --patchQueryResult context patch'
+    patchQueryResult context patch'
     return ()
 
 handleV
@@ -302,6 +301,7 @@ runLocalFrontendRequestT
      , TriggerEvent t m
      , MonadIO m
      , Prerender js m
+     , PostBuild t m
      )
   => LocalFrontendRequestT t (QueryT t (FrontendV (Const SelectedCount)) m) a
   -> m a
@@ -320,10 +320,12 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
         , _localFrontendRequestContext_logger = logger
         }
   (a, requestUniq) <- flip cropQueryT queryResultPatch $ runReaderT m context
-  let queryPatch = AdditivePatch <$> updated requestUniq
+  postBuild <- getPostBuild
+  let updatedRequest = AdditivePatch <$>
+        leftmost [updated requestUniq, tag (current requestUniq) postBuild]
   prerender blank $ do
     queryPatchChan <- liftIO newTChanIO
-    performEvent_ $ ffor queryPatch $ \qp -> liftIO $
+    performEvent_ $ ffor updatedRequest $ \qp -> liftIO $
       atomically $ writeTChan queryPatchChan $ unAdditivePatch qp
     liftIO $ void $ forkIO $ handleQueryUpdates context queryPatchChan
   return a
