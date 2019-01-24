@@ -14,11 +14,15 @@ import           Reflex
 
 import           Frontend.Schema
 
-type EntityMapV table = MapV (EntityKey table) (First (Maybe (table Identity)))
+type EntityMapV table = MapV (Key table) (First (Maybe (table Identity)))
 
 data V f where
   V_Login :: V (EntityMapV Login)
-  V_Logins :: V (SingleV (Set (EntityKey Login)))
+  V_Logins :: V (SingleV (Set (Key Login)))
+
+deriving instance Eq (V f)
+deriving instance Ord (V f)
+deriving instance Show (V f)
 
 deriveGEq ''V
 deriveGCompare ''V
@@ -31,7 +35,7 @@ type FrontendQueryResult = FrontendV Identity
 
 queryLogin
   :: (Reflex t, Monad m, MonadQuery t (Vessel V (Const SelectedCount)) m)
-  => Dynamic t (Maybe (EntityKey Login))
+  => Dynamic t (Maybe (Key Login))
   -> m (Dynamic t (Maybe (Login Identity)))
 queryLogin dmk = getResult <$> queryDyn query
   where
@@ -44,7 +48,7 @@ queryLogin dmk = getResult <$> queryDyn query
 
 queryLogins
   :: (Reflex t, Monad m, MonadQuery t (Vessel V (Const SelectedCount)) m)
-  => m (Dynamic t (Maybe (Set (EntityKey Login))))
+  => m (Dynamic t (Maybe (Set (Key Login))))
 queryLogins = fmap getResult <$> queryDyn query
   where
     query = pure $ singletonV V_Logins $ SingleV $ Const 1

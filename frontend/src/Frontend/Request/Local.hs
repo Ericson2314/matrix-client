@@ -6,6 +6,7 @@
 module Frontend.Request.Local where
 
 import           Control.Concurrent
+import           Control.Concurrent.STM
 import           Control.Lens hiding (has)
 import           Control.Monad
 import           Control.Monad.Fix
@@ -21,6 +22,7 @@ import           Data.Constraint
 import           Data.DependentXhr
 import           Data.Kind
 import qualified Data.Map.Monoidal as MM
+import           Data.Maybe
 import           Data.Semigroup
 import qualified Data.Set as S
 import           Data.Vessel
@@ -32,6 +34,8 @@ import           Language.Javascript.JSaddle.Types
 import           Obelisk.Database.Beam.Entity
 import           Obelisk.Route.Frontend
 import           Reflex.Dom.Core hiding (select)
+-- TODO move to reflex. This method doesn't use web stuff.
+import           Reflex.Dom.WebSocket.Query (cropQueryT)
 import           Reflex.Dom.Prerender.Performable
 import           Reflex.Host.Class
 
@@ -46,7 +50,6 @@ import           Frontend.Schema
 
 data LocalFrontendRequestContext (t :: Type) = LocalFrontendRequestContext
   { _localFrontendRequestContext_connection :: Maybe (MVar Sqlite.Connection)
-  , _localFrontendRequestContext_currentQuery :: Behavior t (FrontendV (Const SelectedCount))
   , _localFrontendRequestContext_updateQueryResult :: FrontendV Identity -> IO ()
   , _localFrontendRequestContext_logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
@@ -186,12 +189,11 @@ handleLocalFrontendRequest k c = \case
           case old of
             Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
             Just _ -> runUpdate $ save (dbLogin db) newEntity
-          runSelectReturningList $ select $ pk <$> all_ (dbLogin db)
+          runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
         $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
         lift $ patchQueryResult c $ mconcat
           [ singletonV V_Login $ MapV $
-              MM.singleton (EntityKey uid') $ Identity $ First $ Just newValue
-          -- TODO: Add accessor for value inside `EntityKey`.
+              MM.singleton uid' $ Identity $ First $ Just newValue
           , singletonV V_Logins $ SingleV $ Identity $ First $
               S.fromList <$> lids
           ]
@@ -239,7 +241,7 @@ withConnection c k = forM (_localFrontendRequestContext_connection c) $
   k <=< liftIO . readMVar
 
 withConnectionTransaction
-  :: MonadIO m
+  :: (MonadIO m, Reflex t)
   => LocalFrontendRequestContext t
   -> (Sqlite.Connection -> IO a)
   -> m (Maybe a)
@@ -248,8 +250,59 @@ withConnectionTransaction c k =
     conn <- readMVar mvc
     Sqlite.withTransaction conn $ k conn
 
+handleQueryUpdates
+  :: Reflex t
+  => LocalFrontendRequestContext t
+  -> TChan (FrontendV (Const SelectedCount))
+  -> IO ()
+handleQueryUpdates context queryPatchChan = do
+  forever $ do
+    patch <- readTChanConcat queryPatchChan
+    -- TODO: Crop out negative selected counts in patch.
+    patch' <- traverseWithKeyV (handleV context) patch
+    patchQueryResult context patch'
+    return ()
+
+handleV
+  :: forall t f p. Reflex t
+  => LocalFrontendRequestContext t
+  -> V f
+  -> f p -- (Const SelectedCount)
+  -> IO (f Identity)
+handleV context gadtKey v = case gadtKey of
+  V_Login ->
+    fmap (fromMaybe $ MapV MM.empty) $ withConnection context $ \conn ->
+      runBeamSqlite conn $ do
+        logins <- runSelectReturningList $ select $ do
+          login <- all_ (dbLogin db)
+          guard_ $ in_
+            (getId $ _entity_key login)
+            (fmap (val_ . getId) $ MM.keys $ unMapV v)
+          pure login
+        pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (k, Identity $ First $ Just v)
+  V_Logins ->
+    fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection context $ \conn ->
+      runBeamSqlite conn $ do
+        logins <- runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
+        pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
+
+readTChanConcat :: Semigroup a => TChan a -> IO a
+readTChanConcat c = atomically (readTChan c) >>= concatWaiting
+  where
+    concatWaiting b = atomically (tryReadTChan c) >>= \case
+      Just a -> concatWaiting $ a <> b
+      Nothing -> return b
+
 runLocalFrontendRequestT
-  :: (Reflex t, MonadFix m, MonadHold t m, TriggerEvent t m, MonadIO m, Prerender js m)
+  :: ( Reflex t
+     , MonadFix m
+     , MonadHold t m
+     , PerformEvent t m
+     , TriggerEvent t m
+     , MonadIO m
+     , Prerender js m
+     , PostBuild t m
+     )
   => LocalFrontendRequestT t (QueryT t (FrontendV (Const SelectedCount)) m) a
   -> m a
 runLocalFrontendRequestT (LocalFrontendRequestT m) = do
@@ -261,14 +314,20 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
   (queryResultPatch, updateQueryResult) <- newTriggerEvent
-  rec let dq = incrementalToDynamic q
-      queryResult <- cropDyn dq queryResultPatch
-      (a, q) <- flip runQueryT queryResult $ runReaderT m $ LocalFrontendRequestContext
+  let context = LocalFrontendRequestContext
         { _localFrontendRequestContext_connection = conn
-        , _localFrontendRequestContext_currentQuery = current dq
         , _localFrontendRequestContext_updateQueryResult = updateQueryResult
         , _localFrontendRequestContext_logger = logger
         }
+  (a, requestUniq) <- flip cropQueryT queryResultPatch $ runReaderT m context
+  postBuild <- getPostBuild
+  let updatedRequest = AdditivePatch <$>
+        leftmost [updated requestUniq, tag (current requestUniq) postBuild]
+  prerender blank $ do
+    queryPatchChan <- liftIO newTChanIO
+    performEvent_ $ ffor updatedRequest $ \qp -> liftIO $
+      atomically $ writeTChan queryPatchChan $ unAdditivePatch qp
+    liftIO $ void $ forkIO $ handleQueryUpdates context queryPatchChan
   return a
 
 -- TODO: Expose this in reflex (currently it's hidden in reflex-dom).
