@@ -318,9 +318,9 @@ runLocalFrontendRequestT (LocalFrontendRequestT m) = do
             , _localFrontendRequestContext_logger = logger
             }
       (a, requestPatch) <- flip runQueryT croppedResult $ runReaderT m context
-      let requestUniq = incrementalToDynamic requestPatch
+      requestUniq <- holdUniqDyn $ incrementalToDynamic requestPatch
       croppedResult <- cropDyn requestUniq queryResultPatch
-  let queryPatch = updatedIncremental requestPatch
+  let queryPatch = AdditivePatch <$> updated requestUniq
   prerender blank $ do
     queryPatchChan <- liftIO newTChanIO
     performEvent_ $ ffor queryPatch $ \qp -> liftIO $
