@@ -12,9 +12,9 @@ import           Control.Monad
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
-import           Data.Functor.Compose
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
+import           Data.Proxy
 import           Data.Semigroup
 import qualified Data.Set as S
 import           Data.Vessel
@@ -33,18 +33,16 @@ handleQueryUpdates
   :: forall r
   .  GivesSQLiteConnection r
   => (FrontendV Identity -> IO ())
-  -> TChan (FrontendV (Const SelectedCount))
+  -> TChan FrontendQuery'
   -> ReaderT r IO ()
 handleQueryUpdates updateQueryResult' queryPatchChan = loop mempty
   where
     loop oldQuery = do
-      patch <- liftIO $ readTChanConcat queryPatchChan
-      let newQuery = patch <> oldQuery
-          requested = cropV newlyRequested newQuery patch
-      forM_ (mapMaybeV getCompose requested) $ \r -> do
-        resultPatch <- traverseWithKeyV handleV r
+      newQuery <- liftIO $ readTChanConcat queryPatchChan
+      forM_ (subtractV (\ Proxy Proxy -> Nothing) newQuery oldQuery) $ \patchQuery -> do
+        resultPatch <- traverseWithKeyV handleV patchQuery
         flip runReaderT updateQueryResult' $ patchQueryResult resultPatch
-      loop newQuery
+      loop $ newQuery
     handleV
       :: forall f p. V f -> f p -> ReaderT r IO (f Identity)
     handleV gadtKey vessel = case gadtKey of
@@ -63,17 +61,6 @@ handleQueryUpdates updateQueryResult' queryPatchChan = loop mempty
           liftIO $ runBeamSqlite conn $ do
             logins <- runSelectReturningList $ select $ _entity_key <$> all_ (_db_login db)
             pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
-
--- | Given a count of newly selected information and a delta, return
--- `Compose $ Just Proxy` if the key was previously not selected and now is.
-newlyRequested
-  :: Const SelectedCount a
-  -> Const SelectedCount a
-  -> Compose Maybe Proxy a
-newlyRequested (Const new) (Const patch) =
-  if new > 0 && new - patch <= 0
-    then Compose $ Just Proxy
-    else Compose Nothing
 
 readTChanConcat :: Semigroup a => TChan a -> IO a
 readTChanConcat c = atomically (readTChan c) >>= concatWaiting
@@ -98,14 +85,22 @@ runFrontendQueries
 runFrontendQueries m = do
   ctx <- ask
   (queryResultPatch, updateQueryResult') <- newTriggerEvent
-  (a, requestUniq) <- flip cropQueryT queryResultPatch $ (m updateQueryResult')
+  (a, requestUniq :: Dynamic t FrontendQuery) <-
+    flip cropQueryT queryResultPatch $ m updateQueryResult'
+  let
+    f = mapMaybeV (\(Const n) -> Proxy <$ guard (n >= 0))
+    -- | Filter out all <= 0 values, and throw away count on rest; the
+    -- frontend-backend doesn't need them.
+    eRequestUniq :: Event t FrontendQuery'
+    eRequestUniq = fforMaybe (updated requestUniq) $ f
+    bRequestUniq :: Behavior t FrontendQuery'
+    bRequestUniq = fromMaybe mempty . f <$> current requestUniq
   postBuild <- getPostBuild
-  let updatedRequest = AdditivePatch <$>
-        leftmost [updated requestUniq, tag (current requestUniq) postBuild]
+  let updatedRequest = leftmost [eRequestUniq, tag bRequestUniq postBuild]
   prerender blank $ do
-    queryPatchChan <- liftIO newTChanIO
+    queryPatchChan <- liftIO $ newTChanIO
     performEvent_ $ ffor updatedRequest $ \qp -> liftIO $
-      atomically $ writeTChan queryPatchChan $ unAdditivePatch qp
+      atomically $ writeTChan queryPatchChan qp
     liftIO $ void $ forkIO $ flip runReaderT ctx $
       handleQueryUpdates updateQueryResult' queryPatchChan
   return a
