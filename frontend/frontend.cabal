@@ -12,13 +12,12 @@ library
                , common
                , constraints-extras
                , derive
-               , obelisk-beam
-               , obelisk-frontend
-               , obelisk-route
                , monad-logger
                , monoidal-containers
-               , reflex-dom
+               , obelisk-beam
+               , obelisk-frontend
                , obelisk-generated-static
+               , obelisk-route
                , reflex-dom
                , semantic-reflex
                , stm

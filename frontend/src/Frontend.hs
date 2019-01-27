@@ -4,11 +4,15 @@ module Frontend where
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
+import           Data.Attoparsec.Text (parseOnly)
+import           Data.Either (fromRight)
 import           Data.Foldable
 import           Data.Maybe (isNothing)
+import qualified Data.Map as M
 import           Data.List.NonEmpty (NonEmpty (..))
 import           Data.Text (Text)
 import qualified Data.Text as T
+import           Obelisk.Database.Beam.Entity
 import           Obelisk.Frontend
 import           Obelisk.Route
 import           Obelisk.Route.Frontend
@@ -28,6 +32,7 @@ frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = el "title" $ text "Matrix"
   , _frontend_body = mapRoutedT runLocalFrontendRequestT $ subRoute_ $ \case
+
       FrontendRoute_Home -> homePage
       FrontendRoute_Login -> loginPage
       FrontendRoute_ListPublicRooms -> publicRoomListing
@@ -42,11 +47,19 @@ homePage = do
   setRoute $ FrontendRoute_ListPublicRooms :/ () <$ listRooms
 
   dLoginIds <- queryLogins
-  el "ul" $
-    void $ dyn $ ffor dLoginIds $ mapM_ $ mapM_ $ \loginId -> do
-      dml <- queryLogin (pure $ Just loginId)
-      void $ dyn $ ffor dml $ mapM_ $ \l ->
-        text $ T.pack $ show l
+  currentLoginId <- el "aside" $ do
+    (loginEl, ()) <- selectElement def $ do
+      elAttr "option" (M.singleton "value" "") $ text "Select User"
+      dyn_ $ ffor dLoginIds $ mapM_ $ mapM_ $ \(Id userIdText) -> do
+        -- TODO make trivial once the key `Id UserId`
+        let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId userIdText
+        elAttr "option" (M.singleton "value" userIdText) $ text $ printUserId userId
+    pure $ ffor (_selectElement_value loginEl) $ \case
+      "" -> Nothing
+      lid -> Just $ Id lid
+  dml <- queryLogin currentLoginId
+  void $ dyn $ ffor dml $ mapM_ $ \l ->
+    text $ T.pack $ show l
 
 loginPage :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
 loginPage = do
