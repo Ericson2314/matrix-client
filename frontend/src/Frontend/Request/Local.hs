@@ -122,12 +122,12 @@ instance (Reflex t, PerformEvent t m, TriggerEvent t m, Prerender js m) => Monad
     ctx <- LocalFrontendRequestT ask
     performEventAsync $ ffor req $ \r k ->
       prerenderPerformable @js @(LocalFrontendRequestT t m) blank $
-        handleLocalFrontendRequest (liftIO . k) ctx r
+        handleLocalFrontendRequest ctx r $ liftIO . k
   performFrontendRequest_ req = do
     ctx <- LocalFrontendRequestT ask
     performEvent_ $ ffor req $ \r ->
       prerenderPerformable @js @(LocalFrontendRequestT t m) blank $
-        handleLocalFrontendRequest (const blank) ctx r
+        handleLocalFrontendRequest ctx r $ const blank
 
 -- | Converts an 'XhrResponseParse' to a 'FrontendError'. All the failure cases
 -- are handled in the simplest way possible (pure functional boilerplate), while
@@ -155,11 +155,11 @@ convertErrors handleSuccessful = \case
 handleLocalFrontendRequest
   :: forall js m t a
   .  JSConstraints js m
-  => (a -> LoggingT IO ())
-  -> LocalFrontendRequestContext t
+  => LocalFrontendRequestContext t
   -> FrontendRequest a
+  -> (a -> LoggingT IO ())
   -> m ()
-handleLocalFrontendRequest k c = \case
+handleLocalFrontendRequest c req0 k = case req0 of
   FrontendRequest_Login hs u pw -> do
     let loginRequest = LoginRequest
           (UserIdentifier_User u)
