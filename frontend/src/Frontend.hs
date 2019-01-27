@@ -26,12 +26,12 @@ import           Common.Route
 
 import           Frontend.Query
 import           Frontend.Request
-import           Frontend.Request.Local
+import           Frontend.Backend
 
 frontend :: Frontend (R FrontendRoute)
 frontend = Frontend
   { _frontend_head = el "title" $ text "Matrix"
-  , _frontend_body = mapRoutedT runLocalFrontendRequestT $ subRoute_ $ \case
+  , _frontend_body = mapRoutedT runFrontendBackendT $ subRoute_ $ \case
 
       FrontendRoute_Home -> homePage
       FrontendRoute_Login -> loginPage

@@ -30,8 +30,11 @@ library
 
   other-modules:
     Frontend.DB
+    Frontend.Query
     Frontend.Request
-    Frontend.Request.Local
+    Frontend.Backend
+    Frontend.Backend.RequestHandler
+    Frontend.Backend.QueryHandler
     Frontend.Schema
 
   default-extensions:
