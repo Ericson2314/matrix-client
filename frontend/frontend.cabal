@@ -12,6 +12,7 @@ library
                , common
                , constraints-extras
                , derive
+               , mmorph
                , monad-logger
                , monoidal-containers
                , obelisk-beam
@@ -36,6 +37,7 @@ library
     Frontend.Backend.RequestHandler
     Frontend.Backend.QueryHandler
     Frontend.Schema
+    Reflex.Orphans
 
   default-extensions:
     AllowAmbiguousTypes

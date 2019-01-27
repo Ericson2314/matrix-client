@@ -6,42 +6,31 @@
 module Frontend.Backend where
 
 import           Control.Concurrent
-import           Control.Concurrent.STM
 import           Control.Lens hiding (has)
-import           Control.Monad
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Exception
 import           Control.Monad.Logger
+import           Control.Monad.Morph
 import           Control.Monad.Primitive
 import           Control.Monad.Ref
-import           Control.Monad.Trans.Class
 import           Control.Monad.Trans.Reader
 import           Data.Coerce
 import           Data.Constraint
-import qualified Data.Map.Monoidal as MM
-import           Data.Maybe
-import           Data.Semigroup
-import qualified Data.Set as S
-import           Data.Vessel
-import           Database.Beam
-import           Database.Beam.Sqlite
 import qualified Database.SQLite.Simple as Sqlite
 import           Language.Javascript.JSaddle.Types
-import           Obelisk.Database.Beam.Entity
 import           Obelisk.Route.Frontend
 import           Reflex.Dom.Core hiding (select)
--- TODO move to reflex. This method doesn't use web stuff.
-import           Reflex.Dom.WebSocket.Query (cropQueryT)
 import           Reflex.Dom.Prerender.Performable
 import           Reflex.Host.Class
+import           Reflex.Orphans ()
 
 import           Frontend.DB
 import           Frontend.Query
 import           Frontend.Request
-import           Frontend.Schema
 import           Frontend.Backend.Common
 import           Frontend.Backend.RequestHandler
+import           Frontend.Backend.QueryHandler
 
 
 data FrontendBackendContext = FrontendBackendContext
@@ -139,47 +128,9 @@ instance
         -- flip runReaderT ctx $ handleLocalFrontendRequest r $ const blank
         handleLocalFrontendRequest r $ const blank
 
-handleQueryUpdates
-  :: forall r
-  .  (HasQueryCallback r, GivesSQLiteConnection r)
-  => TChan (FrontendV (Const SelectedCount))
-  -> ReaderT r IO ()
-handleQueryUpdates queryPatchChan = do
-  forever $ do
-    patch <- liftIO $ readTChanConcat queryPatchChan
-    -- TODO: Crop out negative selected counts in patch.
-    patch' <- traverseWithKeyV handleV patch
-    patchQueryResult patch'
-    return ()
-  where
-    handleV
-      :: forall f p. V f -> f p -> ReaderT r IO (f Identity)
-    handleV gadtKey vessel = case gadtKey of
-      V_Login ->
-        fmap (fromMaybe $ MapV MM.empty) $ withConnection $ \conn ->
-          liftIO $ runBeamSqlite conn $ do
-            logins <- runSelectReturningList $ select $ do
-              login <- all_ (dbLogin db)
-              guard_ $ in_
-                (getId $ _entity_key login)
-                (fmap (val_ . getId) $ MM.keys $ unMapV vessel)
-              pure login
-            pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (k, Identity $ First $ Just v)
-      V_Logins ->
-        fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection $ \conn ->
-          liftIO $ runBeamSqlite conn $ do
-            logins <- runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
-            pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
-
-readTChanConcat :: Semigroup a => TChan a -> IO a
-readTChanConcat c = atomically (readTChan c) >>= concatWaiting
-  where
-    concatWaiting b = atomically (tryReadTChan c) >>= \case
-      Just a -> concatWaiting $ a <> b
-      Nothing -> return b
-
 runFrontendBackendT
-  :: ( MonadFix m
+  :: forall m t js a
+  .  ( MonadFix m
      , MonadHold t m
      , PerformEvent t m
      , TriggerEvent t m
@@ -197,19 +148,9 @@ runFrontendBackendT (FrontendBackendT m) = do
   logger' :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
-  (queryResultPatch, updateQueryResult') <- newTriggerEvent
-  let context = FrontendBackendContext
-        { _localFrontendRequestContext_connection = conn
-        , _localFrontendRequestContext_updateQueryResult = updateQueryResult'
-        , _localFrontendRequestContext_logger = logger'
-        }
-  (a, requestUniq) <- flip cropQueryT queryResultPatch $ runReaderT m context
-  postBuild <- getPostBuild
-  let updatedRequest = AdditivePatch <$>
-        leftmost [updated requestUniq, tag (current requestUniq) postBuild]
-  prerender blank $ do
-    queryPatchChan <- liftIO newTChanIO
-    performEvent_ $ ffor updatedRequest $ \qp -> liftIO $
-      atomically $ writeTChan queryPatchChan $ unAdditivePatch qp
-    liftIO $ void $ forkIO $ flip runReaderT context $ handleQueryUpdates queryPatchChan
-  return a
+  flip runReaderT conn $ runFrontendQueries @(ReaderT _ m) $ \updateQueryResult' ->
+    (hoist (ReaderT . const)) $ runReaderT m $ FrontendBackendContext
+      { _localFrontendRequestContext_connection = conn
+      , _localFrontendRequestContext_updateQueryResult = updateQueryResult'
+      , _localFrontendRequestContext_logger = logger'
+      }
