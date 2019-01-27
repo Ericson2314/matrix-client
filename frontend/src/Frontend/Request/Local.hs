@@ -258,32 +258,28 @@ handleQueryUpdates context queryPatchChan = do
   forever $ do
     patch <- readTChanConcat queryPatchChan
     -- TODO: Crop out negative selected counts in patch.
-    patch' <- traverseWithKeyV (handleV context) patch
+    patch' <- traverseWithKeyV handleV patch
     patchQueryResult context patch'
     return ()
-
-handleV
-  :: forall t f p
-  .  LocalFrontendRequestContext t
-  -> V f
-  -> f p -- (Const SelectedCount)
-  -> IO (f Identity)
-handleV context gadtKey vessel = case gadtKey of
-  V_Login ->
-    fmap (fromMaybe $ MapV MM.empty) $ withConnection context $ \conn ->
-      runBeamSqlite conn $ do
-        logins <- runSelectReturningList $ select $ do
-          login <- all_ (dbLogin db)
-          guard_ $ in_
-            (getId $ _entity_key login)
-            (fmap (val_ . getId) $ MM.keys $ unMapV vessel)
-          pure login
-        pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (k, Identity $ First $ Just v)
-  V_Logins ->
-    fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection context $ \conn ->
-      runBeamSqlite conn $ do
-        logins <- runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
-        pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
+  where
+    handleV
+      :: forall f p. V f -> f p -> IO (f Identity)
+    handleV gadtKey vessel = case gadtKey of
+      V_Login ->
+        fmap (fromMaybe $ MapV MM.empty) $ withConnection context $ \conn ->
+          runBeamSqlite conn $ do
+            logins <- runSelectReturningList $ select $ do
+              login <- all_ (dbLogin db)
+              guard_ $ in_
+                (getId $ _entity_key login)
+                (fmap (val_ . getId) $ MM.keys $ unMapV vessel)
+              pure login
+            pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (k, Identity $ First $ Just v)
+      V_Logins ->
+        fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection context $ \conn ->
+          runBeamSqlite conn $ do
+            logins <- runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
+            pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
 
 readTChanConcat :: Semigroup a => TChan a -> IO a
 readTChanConcat c = atomically (readTChan c) >>= concatWaiting
