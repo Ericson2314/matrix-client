@@ -1,21 +1,27 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeInType #-}
 module Matrix.Client.Types.Event.Route where
 
-import           Control.Lens hiding ((.=))
 import           Control.Applicative (liftA2)
+import           Control.Lens hiding ((.=))
 import           Control.Monad
 import           Data.Aeson
 import           Data.Constraint.Extras.TH
 import           Data.Kind
 import           Data.Map (Map)
+import           Data.Proxy
+import           Data.Some
 import           Data.Text (Text)
+import           Data.Type.Equality
 import           Data.Word
 import           GHC.Generics
+import           GHC.TypeLits
 
 import           Data.DependentXhr
+
 import           Matrix.Identifiers
 import           Matrix.Client.Types.Common
 import           Matrix.Client.Types.Filter
@@ -131,6 +137,18 @@ data EventRoute :: Route where
 
 data SyncRespKey :: RespRelation where
   SyncRespKey_200 :: SyncRespKey 200 SyncResponse
+
+instance DecidablableLookup SyncRespKey where
+  -- TODO handle other cases, make some TH for this.
+  liftedLookup
+    :: forall status
+    .  KnownNat status
+    => Decision (Some (SyncRespKey status))
+  liftedLookup = case
+      sameNat (Proxy :: Proxy status)
+              (Proxy :: Proxy 200)
+    of
+      Just Refl -> Proved $ This SyncRespKey_200
 
 data Filter'
   = Filter'_Id Text

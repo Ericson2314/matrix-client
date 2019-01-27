@@ -5,8 +5,8 @@
 {-# LANGUAGE TypeInType #-}
 module Matrix.Client.Types.Room where
 
-import           Control.Lens hiding ((.=))
 import           Control.Applicative ((<|>), liftA2)
+import           Control.Lens hiding ((.=))
 import           Control.Monad
 import           Data.Aeson
 import           Data.Constraint.Extras.TH
@@ -310,6 +310,18 @@ instance ToJSON DeleteRoomAliasResponse where
 
 data JoinedRoomsRespKey :: RespRelation where
   JoinedRoomsRespKey_200 :: JoinedRoomsRespKey 200 JoinedRoomsResponse
+
+instance DecidablableLookup JoinedRoomsRespKey where
+  -- TODO handle other cases, make some TH for this.
+  liftedLookup
+    :: forall status
+    .  KnownNat status
+    => Decision (Some (JoinedRoomsRespKey status))
+  liftedLookup = case
+      sameNat (Proxy :: Proxy status)
+              (Proxy :: Proxy 200)
+    of
+      Just Refl -> Proved $ This JoinedRoomsRespKey_200
 
 data JoinedRoomsRequest = JoinedRoomsRequest
   deriving (Eq, Ord, Show, Generic)
