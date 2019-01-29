@@ -13,7 +13,6 @@ import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Logger
-import           Data.Bifunctor (first)
 import qualified Data.Map as M
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
@@ -85,7 +84,7 @@ synchronize
   => (UserId, Login)
   -> SingleV SyncResponse p
   -> Maybe SyncBatchToken
-  -> (FrontendV Identity -> IO ())
+  -> (SingleV SyncResponse Identity -> IO ())
   -> (Maybe SyncBatchToken -> IO ())
   -> m ()
 synchronize key@(userId, login) query mSince0 updateQueryResult' signalSyncDone = do
@@ -106,7 +105,7 @@ synchronize key@(userId, login) query mSince0 updateQueryResult' signalSyncDone 
       flip runLoggingT logger' . \case
         Right (Right (XhrThisStatus SyncRespKey_200 (Right (Right result)))) -> do
           $(logInfo) $ "Synced with server"
-          liftIO $ signalSyncDone Nothing -- TODO
+          liftIO $ signalSyncDone $ Just $ _syncResponse_nextBatch result
         _failure -> do
           $(logInfo) $ "Failed to synced with server "
           liftIO $ signalSyncDone Nothing
@@ -153,7 +152,8 @@ runFrontendQueries m = do
           <$> (M.fromList . fmapMaybe filterSyncs . toListV <$> requestUniq)
           <*> syncDone'
     performEvent_ $ ffor queryAndThenSum $ \querys ->
-      ifor_ querys $ \key (query, mSince) ->
-        synchronize @js key query mSince updateQueryResult'
+      ifor_ querys $ \key@(user, login) (query, mSince) ->
+        synchronize @js key query mSince
+          (updateQueryResult' . singletonV (V_Sync user login))
           (signalSyncDone . M.singleton key)
   return a
