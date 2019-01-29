@@ -29,7 +29,7 @@ makeLenses ''Login
 type instance KeyT Login = Id Text -- M.UserId
 
 data Db f = Db
-  { dbLogin :: f (TableEntity (EntityT Login))
+  { _db_login :: f (TableEntity (EntityT Login))
   } deriving (Generic, Database be)
 
 db :: DatabaseSettings Sqlite Db
@@ -37,7 +37,7 @@ db = unCheckDatabase checkedDb
 
 checkedDb :: CheckedDatabaseSettings Sqlite Db
 checkedDb = withDbModification defaultMigratableDbSettings $ Db
-  { dbLogin = checkedEntity "login" (Id $ checkedFieldNamed "user_id") $ Login
+  { _db_login = checkedEntity "login" (Id $ checkedFieldNamed "user_id") $ Login
       { _login_homeServer = checkedFieldNamed "home_server"
       , _login_accessToken = checkedFieldNamed "access_token"
       , _login_deviceId = checkedFieldNamed "device_id"

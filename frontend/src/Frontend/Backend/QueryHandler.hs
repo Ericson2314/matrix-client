@@ -48,7 +48,7 @@ handleQueryUpdates updateQueryResult' queryPatchChan = do
         fmap (fromMaybe $ MapV MM.empty) $ withConnection $ \conn ->
           liftIO $ runBeamSqlite conn $ do
             logins <- runSelectReturningList $ select $ do
-              login <- all_ (dbLogin db)
+              login <- all_ (_db_login db)
               guard_ $ in_
                 (getId $ _entity_key login)
                 (fmap (val_ . getId) $ MM.keys $ unMapV vessel)
@@ -57,7 +57,7 @@ handleQueryUpdates updateQueryResult' queryPatchChan = do
       V_Logins ->
         fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection $ \conn ->
           liftIO $ runBeamSqlite conn $ do
-            logins <- runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
+            logins <- runSelectReturningList $ select $ _entity_key <$> all_ (_db_login db)
             pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
 
 readTChanConcat :: Semigroup a => TChan a -> IO a

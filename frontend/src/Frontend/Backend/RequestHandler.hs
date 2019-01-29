@@ -101,14 +101,14 @@ handleLocalFrontendRequest req0 k = do
               newEntity = Entity uid' newValue
           lids <- withConnection $ \conn -> liftIO $ runBeamSqlite conn $ do
             -- TODO: Add upsert support for beam-sqlite.
-            old <- runSelectReturningOne $ lookup_ (dbLogin db) $ EntityKey uid'
-            runUpdate $ update (dbLogin db)
+            old <- runSelectReturningOne $ lookup_ (_db_login db) $ EntityKey uid'
+            runUpdate $ update (_db_login db)
               (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
               (\_ -> val_ True)
             case old of
-              Nothing -> runInsert $ insert (dbLogin db) $ insertValues [newEntity]
-              Just _ -> runUpdate $ save (dbLogin db) newEntity
-            runSelectReturningList $ select $ _entity_key <$> all_ (dbLogin db)
+              Nothing -> runInsert $ insert (_db_login db) $ insertValues [newEntity]
+              Just _ -> runUpdate $ save (_db_login db) newEntity
+            runSelectReturningList $ select $ _entity_key <$> all_ (_db_login db)
           $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
           lift $ patchQueryResult $ mconcat
             [ singletonV V_Login $ MapV $
