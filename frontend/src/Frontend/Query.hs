@@ -64,3 +64,16 @@ queryLogins = fmap getResult <$> queryDyn query
   where
     query = pure $ singletonV V_Logins $ SingleV $ Const 1
     getResult = lookupV V_Logins >=> (getFirst . runIdentity . unSingleV)
+
+querySync
+  :: (Reflex t, Monad m, MonadQuery t (Vessel V (Const SelectedCount)) m)
+  => Dynamic t (Maybe (UserId, Login))
+  -> m (Dynamic t (Maybe SyncResponse))
+querySync dml = getResult <$> queryDyn query
+  where
+    query = ffor dml $ maybe mempty $ \(u, l) ->
+      singletonV (V_Sync u l) $ SingleV $ Const 1
+    getResult dr = ffor2 dml dr $ \ml r ->
+      (getFirst . runIdentity . unSingleV)
+      =<< flip lookupV r
+      =<< (uncurry V_Sync <$> ml)

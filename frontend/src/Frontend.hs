@@ -1,6 +1,7 @@
 {-# LANGUAGE RecursiveDo #-}
 module Frontend where
 
+import           Control.Applicative
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class
@@ -60,6 +61,28 @@ homePage = do
   dml <- queryLogin currentLoginId
   void $ dyn $ ffor dml $ mapM_ $ \l ->
     text $ T.pack $ show l
+  do
+    sync <- el "label" $ do
+      sync <- input def $ inputElement $ def
+        & initialAttributes .~ M.fromList [ ("type", "radio")
+                                          , ("name", "sync")
+                                          ]
+      text "do sync"
+      pure sync
+    el "label" $ do
+      _ <- input def $ inputElement $ def
+        & initialAttributes .~ M.fromList [ ("type", "radio")
+                                          , ("name", "sync")
+                                          , ("checked", "")
+                                          ]
+      text "don't sync"
+    sync <- querySync $ ffor2 currentLoginId dml $ liftA2 $ \ (Id u) l ->
+      -- TODO make trivial once the key `Id UserId`
+      let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId u
+      in (userId, l)
+    void $ dyn $ ffor sync $ mapM_ $ \s ->
+      blank --text $ T.pack $ show s
+  pure ()
 
 loginPage :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
 loginPage = do
