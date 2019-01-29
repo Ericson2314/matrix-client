@@ -9,12 +9,14 @@ import           Control.Applicative (liftA2)
 import           Control.Lens hiding ((.=))
 import           Control.Monad
 import           Data.Aeson
+import           Data.ByteString.Lazy as BSL
 import           Data.Constraint.Extras.TH
 import           Data.Kind
 import           Data.Map (Map)
 import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)
+import qualified Data.Text.Encoding as T
 import           Data.Type.Equality
 import           Data.Word
 import           GHC.Generics
@@ -162,11 +164,11 @@ data Filter'
   -- ^ A previously saved filter referenced by an identifier.
   deriving (Eq, Ord, Show, Generic)
 
--- TODO fix sum type instances
-instance FromJSON Filter' where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON Filter' where
-  toJSON = genericToJSON aesonOptions
+instance ToRoutePiece Filter' where
+  toRoute = \case
+    Filter'_Id t -> t
+    Filter'_Literal filterLiteral ->
+      T.decodeUtf8 $ BSL.toStrict $ encode filterLiteral
 
 data ClientPresence
   = ClientPresence_Offline
@@ -174,17 +176,20 @@ data ClientPresence
   | ClientPresence_Unavailable
   deriving (Eq, Ord, Show, Generic, Enum, Bounded)
 
--- TODO fix enum instances
-instance FromJSON ClientPresence where
-  parseJSON = genericParseJSON aesonOptions
-instance ToJSON ClientPresence where
-  toJSON = genericToJSON aesonOptions
+instance ToRoutePiece ClientPresence where
+  toRoute = \case
+    ClientPresence_Offline -> "offline"
+    ClientPresence_Online -> "online"
+    ClientPresence_Unavailable -> "unavailable"
 
 -- TODO there might be more structure, but can be used opaquely so plain newtype
 -- is probably sufficient.
-newtype SyncBatchToken = SyncBatchToken Text
+newtype SyncBatchToken = SyncBatchToken { unSyncBatchToken :: Text }
   deriving (Eq, Ord, Show, Generic)
   deriving newtype (FromJSON, ToJSON)
+
+instance ToRoutePiece SyncBatchToken where
+  toRoute = unSyncBatchToken
 
 data SyncRequest = SyncRequest
   deriving (Eq, Ord, Show, Generic)

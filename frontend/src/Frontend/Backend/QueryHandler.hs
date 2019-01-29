@@ -13,7 +13,8 @@ import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Logger
-import           Data.Foldable (for_)
+import           Data.Bifunctor (first)
+import qualified Data.Map as M
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
 import qualified Data.List.NonEmpty as NEL
@@ -29,8 +30,9 @@ import           Reflex.Dom.WebSocket.Query (cropQueryT)
 import           Reflex.Dom.Prerender.Performable
 
 import           Matrix.Identifiers
-import           Matrix.Client.Types.Event.Route
+import           Matrix.Client.Types hiding (Login)
 
+import           Data.DependentXhr
 import           Frontend.Query
 import           Frontend.Schema
 import           Frontend.Backend.Common
@@ -80,16 +82,34 @@ readTChanConcat c = atomically (readTChan c) >>= concatWaiting
 synchronize
   :: forall js m r p
   .  (JSConstraints js m, MonadReader r m, HasLogger r)
-  => UserId
-  -> Login
+  => (UserId, Login)
   -> SingleV SyncResponse p
+  -> Maybe SyncBatchToken
   -> (FrontendV Identity -> IO ())
-  -> IO ()
+  -> (Maybe SyncBatchToken -> IO ())
   -> m ()
-synchronize userId login query updateQueryResult' signalSyncDone = do
-  liftIO signalSyncDone
+synchronize key@(userId, login) query mSince0 updateQueryResult' signalSyncDone = do
   logger' <- asks $ view logger
-  flip runLoggingT logger' $ $(logInfo) $ "Synced with server"
+  let
+    qps = QPList_Cons Proxy Nothing
+        $ QPList_Cons Proxy mSince0
+        $ QPList_Cons Proxy (Just True)
+        $ QPList_Cons Proxy Nothing
+        $ QPList_Cons Proxy Nothing
+        $ QPList_Nil
+  performRoutedRequest
+    (ClientServerRoute_Event EventRoute_Sync)
+    ("https://" <> _login_homeServer login)
+    (_login_accessToken login)
+    SyncRequest
+    qps $
+      flip runLoggingT logger' . \case
+        Right (Right (XhrThisStatus SyncRespKey_200 (Right (Right result)))) -> do
+          $(logInfo) $ "Synced with server"
+          liftIO $ signalSyncDone Nothing -- TODO
+        _failure -> do
+          $(logInfo) $ "Failed to synced with server "
+          liftIO $ signalSyncDone Nothing
 
 runFrontendQueries
   :: forall m t js r a
@@ -120,17 +140,20 @@ runFrontendQueries m = do
       handleQueryUpdates updateQueryResult' queryPatchChan
   flip runReaderT ctx $ prerender blank $ do
     (syncDone, signalSyncDone) <- newTriggerEvent
+    syncDone' <- foldDyn M.union mempty syncDone
     let filterSyncs
           :: VSum V f
-          -> Maybe (UserId, Login, SingleV SyncResponse f)
+          -> Maybe ((UserId, Login), SingleV SyncResponse f)
         filterSyncs (vtag :~> v) = case vtag of
-          V_Sync userId login -> Just (userId, login, v)
+          V_Sync userId login -> Just ((userId, login), v)
           _ -> Nothing
-        queryAndThenSum = fmapMaybe (NEL.nonEmpty . fmapMaybe filterSyncs . toListV)
-          $ leftmost [ updated requestUniq
-                       , tag (current requestUniq) syncDone
-                       ]
+        queryAndThenSum = ffilter null
+          $ updated
+          $ M.intersectionWith (,)
+          <$> (M.fromList . fmapMaybe filterSyncs . toListV <$> requestUniq)
+          <*> syncDone'
     performEvent_ $ ffor queryAndThenSum $ \querys ->
-      for_ querys $ \(userId, login, query) ->
-        synchronize @js userId login query updateQueryResult' (signalSyncDone ())
+      ifor_ querys $ \key (query, mSince) ->
+        synchronize @js key query mSince updateQueryResult'
+          (signalSyncDone . M.singleton key)
   return a

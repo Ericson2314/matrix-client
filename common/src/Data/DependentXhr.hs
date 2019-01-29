@@ -137,6 +137,11 @@ class ToRoutePiece t where
 instance ToRoutePiece Text where
   toRoute = id -- TODO maybe require newtypes by not doing this?
 
+instance ToRoutePiece Bool where
+  toRoute = \case -- TODO maybe require newtypes by not doing this?
+    True -> "true"
+    False -> "false"
+
 instance ToRoutePiece Word32 where
   toRoute = T.pack . show
 

@@ -15,7 +15,7 @@ import Data.DependentXhr
 
 data LoginT f = Login
   { _login_homeServer :: Columnar f Text
-  , _login_accessToken :: Columnar (Nullable f) AccessToken
+  , _login_accessToken :: Columnar f AccessToken
   , _login_deviceId :: Columnar (Nullable f) M.DeviceId
   , _login_isActive :: Columnar f Bool
   } deriving (Generic, Beamable)

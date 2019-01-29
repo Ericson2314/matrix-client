@@ -94,7 +94,7 @@ handleLocalFrontendRequest req0 k = do
               uid' = Id $ printUserId uid
               newValue = Login
                 { _login_homeServer = hs
-                , _login_accessToken = Just $ r ^. loginResponse_accessToken
+                , _login_accessToken = r ^. loginResponse_accessToken
                 , _login_deviceId = Just $ r ^. loginResponse_deviceId
                 , _login_isActive = True
                 }
