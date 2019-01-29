@@ -16,7 +16,6 @@ import           Control.Monad.Logger
 import qualified Data.Map as M
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
-import qualified Data.List.NonEmpty as NEL
 import           Data.Semigroup
 import qualified Data.Set as S
 import           Data.Vessel
@@ -87,7 +86,7 @@ synchronize
   -> (SingleV SyncResponse Identity -> IO ())
   -> (Maybe SyncBatchToken -> IO ())
   -> m ()
-synchronize key@(userId, login) query mSince0 updateQueryResult' signalSyncDone = do
+synchronize (userId, login) query mSince0 updateQueryResult' signalSyncDone = do
   logger' <- asks $ view logger
   let
     qps = QPList_Cons Proxy Nothing
@@ -104,6 +103,7 @@ synchronize key@(userId, login) query mSince0 updateQueryResult' signalSyncDone 
     qps $
       flip runLoggingT logger' . \case
         Right (Right (XhrThisStatus SyncRespKey_200 (Right (Right result)))) -> do
+          liftIO $ updateQueryResult' $ SingleV $ Identity $ First $ Just result
           $(logInfo) $ "Synced with server"
           liftIO $ signalSyncDone $ Just $ _syncResponse_nextBatch result
         _failure -> do
