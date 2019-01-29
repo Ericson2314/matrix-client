@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
 module Frontend.Query where
 
@@ -6,22 +7,29 @@ import           Data.Constraint.Extras.TH
 import           Data.Functor.Identity
 import           Data.GADT.Compare.TH
 import qualified Data.Map.Monoidal as MM
+import           Data.Kind (Type)
 import           Data.Semigroup
 import           Data.Set
 import           Data.Vessel
 import           Obelisk.Database.Beam.Entity
 import           Reflex
 
+import           Matrix.Client.Types.Event.Route
+
+import           Data.DependentXhr (AccessToken (..))
 import           Frontend.Schema
+--import           Frontend.Query.Sync
 
 type EntityMapV table = MapV (Key table) (First (Maybe (table Identity)))
 
-data V f where
+data V :: ((Type -> Type) -> Type) -> Type where
   V_Login :: V (EntityMapV Login)
   V_Logins :: V (SingleV (Set (Key Login)))
+  V_Sync :: AccessToken -> V (SingleV SyncResponse)
+  --V_Sync :: V RawMatrixClientV --(SingleV (Filter' -> SyncResponse))
 
 deriving instance Eq (V f)
-deriving instance Ord (V f)
+--deriving instance Ord (V f)
 deriving instance Show (V f)
 
 deriveGEq ''V

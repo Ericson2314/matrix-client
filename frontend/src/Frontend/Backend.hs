@@ -51,6 +51,20 @@ instance HasQueryCallback FrontendBackendContext where
 instance HasLogger FrontendBackendContext where
   logger = localFrontendRequestContext_logger
 
+data FrontendBackendContextLight = FrontendBackendContextLight
+  { _localFrontendRequestContextLight_connection :: Maybe (MVar Sqlite.Connection)
+  , _localFrontendRequestContextLight_logger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+  }
+
+makeLenses ''FrontendBackendContextLight
+
+instance GivesSQLiteConnection FrontendBackendContextLight where
+  obtainSqliteConnection = obtainSqliteConnection
+    . view localFrontendRequestContextLight_connection
+
+instance HasLogger FrontendBackendContextLight where
+  logger = localFrontendRequestContextLight_logger
+
 newtype FrontendBackendT m a = FrontendBackendT
   { unFrontendBackendT :: ReaderT FrontendBackendContext m a
   } deriving newtype
@@ -148,7 +162,11 @@ runFrontendBackendT (FrontendBackendT m) = do
   logger' :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
     <- prerender (return $ \ _ _ _ _ -> blank @IO) $ liftIO $
       (runStderrLoggingT $ askLoggerIO :: IO (Loc -> LogSource -> LogLevel -> LogStr -> IO ()))
-  flip runReaderT conn $ runFrontendQueries @(ReaderT _ m) $ \updateQueryResult' ->
+  let ctxLight = FrontendBackendContextLight
+        { _localFrontendRequestContextLight_connection = conn
+        , _localFrontendRequestContextLight_logger = logger'
+        }
+  flip runReaderT ctxLight $ runFrontendQueries @(ReaderT _ m) $ \updateQueryResult' ->
     (hoist (ReaderT . const)) $ runReaderT m $ FrontendBackendContext
       { _localFrontendRequestContext_connection = conn
       , _localFrontendRequestContext_updateQueryResult = updateQueryResult'

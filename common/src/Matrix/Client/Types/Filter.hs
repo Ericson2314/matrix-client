@@ -10,6 +10,7 @@ import           Control.Monad
 import           Data.Aeson
 import qualified Data.Aeson as Ae
 import           Data.Constraint.Extras.TH
+import           Data.Default
 import           Data.Text (Text)
 import           Data.Word
 import           GHC.Generics
@@ -22,12 +23,21 @@ import           Matrix.Client.Types.Event
 --------------------------------------------------------------------------------
 
 data Filter = Filter
-  { _putFilterRequest_eventFields :: [Text] -- TODO way more structure
-  , _putFilterRequest_eventFormat :: EventFormat
-  , _putFilterRequest_presence :: EventFilter
-  , _putFilterRequest_accountData :: EventFilter
-  , _putFilterRequest_roomFilter :: RoomFilter
+  { _putFilterRequest_eventFields :: Maybe [Text] -- TODO way more structure
+  , _putFilterRequest_eventFormat :: Maybe EventFormat
+  , _putFilterRequest_presence :: Maybe EventFilter
+  , _putFilterRequest_accountData :: Maybe EventFilter
+  , _putFilterRequest_roomFilter :: Maybe RoomFilter
   } deriving (Eq, Ord, Show, Generic)
+
+instance Default Filter where
+  def = Filter
+    { _putFilterRequest_eventFields = def
+    , _putFilterRequest_eventFormat = def
+    , _putFilterRequest_presence = def
+    , _putFilterRequest_accountData = def
+    , _putFilterRequest_roomFilter = def
+    }
 
 instance FromJSON Filter where
   parseJSON = genericParseJSON aesonOptions

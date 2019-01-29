@@ -34,7 +34,12 @@ data EventRoute :: Route where
     :: EventRoute
        'GET
        '[ 'Left "sync"]
-       '[ ]
+       '[ '("filter", Filter')
+        , '("since", SyncBatchToken)
+        , '("fullState", Bool)
+        , '("setPresence", ClientPresence)
+        , '("timeout", Word32) -- TODO width, signedness
+        ]
        'True
        SyncRequest
        SyncRespKey
@@ -182,12 +187,7 @@ newtype SyncBatchToken = SyncBatchToken Text
   deriving newtype (FromJSON, ToJSON)
 
 data SyncRequest = SyncRequest
-  { _syncRequest_filter :: Filter'
-  , _syncRequest_since :: SyncBatchToken
-  , _syncRequest_fullState :: Bool
-  , _syncRequest_setPresence :: ClientPresence
-  , _syncRequest_timeout :: Word32 -- TODO width, signedness
-  } deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Ord, Show, Generic)
 
 instance FromJSON SyncRequest where
   parseJSON = genericParseJSON aesonOptions
