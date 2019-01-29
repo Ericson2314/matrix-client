@@ -23,14 +23,14 @@ import           Data.Vessel
 import           Database.Beam
 import           Database.Beam.Sqlite
 import           Obelisk.Database.Beam.Entity
-import           Reflex.Dom.Core hiding (select)
+import           Reflex.Dom.Core hiding (Key, select)
 -- TODO move to reflex. This method doesn't use web stuff.
 import           Reflex.Dom.WebSocket.Query (cropQueryT)
 import           Reflex.Dom.Prerender.Performable
 
+import           Matrix.Identifiers
 import           Matrix.Client.Types.Event.Route
 
-import           Data.DependentXhr (AccessToken (..))
 import           Frontend.Query
 import           Frontend.Schema
 import           Frontend.Backend.Common
@@ -67,7 +67,7 @@ handleQueryUpdates updateQueryResult' queryPatchChan = do
             logins <- runSelectReturningList $ select $ _entity_key <$> all_ (_db_login db)
             pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
       -- TODO
-      V_Sync _ -> pure $ SingleV $ Identity $ First $ Nothing
+      V_Sync _ _ -> pure $ SingleV $ Identity $ First $ Nothing
 
 
 readTChanConcat :: Semigroup a => TChan a -> IO a
@@ -80,12 +80,13 @@ readTChanConcat c = atomically (readTChan c) >>= concatWaiting
 synchronize
   :: forall js m r p
   .  (JSConstraints js m, MonadReader r m, HasLogger r)
-  => AccessToken
+  => UserId
+  -> Login
   -> SingleV SyncResponse p
   -> (FrontendV Identity -> IO ())
   -> IO ()
   -> m ()
-synchronize token query updateQueryResult' signalSyncDone = do
+synchronize userId login query updateQueryResult' signalSyncDone = do
   liftIO signalSyncDone
   logger' <- asks $ view logger
   flip runLoggingT logger' $ $(logInfo) $ "Synced with server"
@@ -121,15 +122,15 @@ runFrontendQueries m = do
     (syncDone, signalSyncDone) <- newTriggerEvent
     let filterSyncs
           :: VSum V f
-          -> Maybe (AccessToken, SingleV SyncResponse f)
+          -> Maybe (UserId, Login, SingleV SyncResponse f)
         filterSyncs (vtag :~> v) = case vtag of
-          V_Sync token -> Just (token, v)
+          V_Sync userId login -> Just (userId, login, v)
           _ -> Nothing
         queryAndThenSum = fmapMaybe (NEL.nonEmpty . fmapMaybe filterSyncs . toListV)
           $ leftmost [ updated requestUniq
                        , tag (current requestUniq) syncDone
                        ]
     performEvent_ $ ffor queryAndThenSum $ \querys ->
-      for_ querys $ \(token, query) ->
-        synchronize @js token query updateQueryResult' (signalSyncDone ())
+      for_ querys $ \(userId, login, query) ->
+        synchronize @js userId login query updateQueryResult' (signalSyncDone ())
   return a

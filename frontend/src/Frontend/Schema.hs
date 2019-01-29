@@ -13,23 +13,26 @@ import qualified Matrix.Identifiers as M
 import Database.Beam.Matrix.Orphans ()
 import Data.DependentXhr
 
-data Login f = Login
+data LoginT f = Login
   { _login_homeServer :: Columnar f Text
   , _login_accessToken :: Columnar (Nullable f) AccessToken
   , _login_deviceId :: Columnar (Nullable f) M.DeviceId
   , _login_isActive :: Columnar f Bool
   } deriving (Generic, Beamable)
+type Login = LoginT Identity
 
-deriving instance Show (Login Identity)
+deriving instance Eq Login
+deriving instance Ord Login
+deriving instance Show Login
 
-makeLenses ''Login
+makeLenses ''LoginT
 
 -- Until https://github.com/tathougies/beam/issues/262 is resolved, this is too
 -- annoying.
-type instance KeyT Login = Id Text -- M.UserId
+type instance KeyT LoginT = Id Text -- M.UserId
 
 data Db f = Db
-  { _db_login :: f (TableEntity (EntityT Login))
+  { _db_login :: f (TableEntity (EntityT LoginT))
   } deriving (Generic, Database be)
 
 db :: DatabaseSettings Sqlite Db

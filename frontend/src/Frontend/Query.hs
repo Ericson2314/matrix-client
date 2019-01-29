@@ -14,18 +14,21 @@ import           Data.Vessel
 import           Obelisk.Database.Beam.Entity
 import           Reflex
 
+import           Matrix.Identifiers
 import           Matrix.Client.Types.Event.Route
 
-import           Data.DependentXhr (AccessToken (..))
 import           Frontend.Schema
 --import           Frontend.Query.Sync
 
 type EntityMapV table = MapV (Key table) (First (Maybe (table Identity)))
 
 data V :: ((Type -> Type) -> Type) -> Type where
-  V_Login :: V (EntityMapV Login)
-  V_Logins :: V (SingleV (Set (Key Login)))
-  V_Sync :: AccessToken -> V (SingleV SyncResponse)
+  V_Login :: V (EntityMapV LoginT)
+  V_Logins :: V (SingleV (Set (Key LoginT)))
+  V_Sync
+    :: UserId
+    -> Login
+    -> V (SingleV SyncResponse)
   --V_Sync :: V RawMatrixClientV --(SingleV (Filter' -> SyncResponse))
 
 deriving instance Eq (V f)
@@ -43,8 +46,8 @@ type FrontendQueryResult = FrontendV Identity
 
 queryLogin
   :: (Reflex t, Monad m, MonadQuery t (Vessel V (Const SelectedCount)) m)
-  => Dynamic t (Maybe (Key Login))
-  -> m (Dynamic t (Maybe (Login Identity)))
+  => Dynamic t (Maybe (Key LoginT))
+  -> m (Dynamic t (Maybe Login))
 queryLogin dmk = getResult <$> queryDyn query
   where
     query = ffor dmk $ \case
@@ -56,7 +59,7 @@ queryLogin dmk = getResult <$> queryDyn query
 
 queryLogins
   :: (Reflex t, Monad m, MonadQuery t (Vessel V (Const SelectedCount)) m)
-  => m (Dynamic t (Maybe (Set (Key Login))))
+  => m (Dynamic t (Maybe (Set (Key LoginT))))
 queryLogins = fmap getResult <$> queryDyn query
   where
     query = pure $ singletonV V_Logins $ SingleV $ Const 1
