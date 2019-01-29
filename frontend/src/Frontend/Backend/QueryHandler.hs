@@ -40,7 +40,6 @@ handleQueryUpdates updateQueryResult' queryPatchChan = do
     -- TODO: Crop out negative selected counts in patch.
     patch' <- traverseWithKeyV handleV patch
     flip runReaderT updateQueryResult' $ patchQueryResult patch'
-    return ()
  where
     handleV
       :: forall f p. V f -> f p -> ReaderT r IO (f Identity)
