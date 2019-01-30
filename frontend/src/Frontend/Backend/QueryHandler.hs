@@ -12,6 +12,8 @@ import           Control.Monad
 import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
+import           Data.Functor.Compose
+import           Data.IORef
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
 import           Data.Semigroup
@@ -35,11 +37,16 @@ handleQueryUpdates
   -> TChan (FrontendV (Const SelectedCount))
   -> ReaderT r IO ()
 handleQueryUpdates updateQueryResult' queryPatchChan = do
+  oldQueryRef <- liftIO $ newIORef mempty
   forever $ do
+    oldQuery <- liftIO $ readIORef oldQueryRef
     patch <- liftIO $ readTChanConcat queryPatchChan
-    -- TODO: Crop out negative selected counts in patch.
-    patch' <- traverseWithKeyV handleV patch
-    flip runReaderT updateQueryResult' $ patchQueryResult patch'
+    let newQuery = patch <> oldQuery
+        requested = cropV newlyRequested newQuery patch
+    forM_ (mapMaybeV getCompose requested) $ \r -> do
+      resultPatch <- traverseWithKeyV handleV r
+      flip runReaderT updateQueryResult' $ patchQueryResult resultPatch
+    liftIO $ writeIORef oldQueryRef newQuery
  where
     handleV
       :: forall f p. V f -> f p -> ReaderT r IO (f Identity)
@@ -59,6 +66,17 @@ handleQueryUpdates updateQueryResult' queryPatchChan = do
           liftIO $ runBeamSqlite conn $ do
             logins <- runSelectReturningList $ select $ _entity_key <$> all_ (_db_login db)
             pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
+
+-- | Given a count of newly selected information and a delta, return
+-- `Compose $ Just Proxy` if the key was previously not selected and now is.
+newlyRequested
+  :: Const SelectedCount a
+  -> Const SelectedCount a
+  -> Compose Maybe Proxy a
+newlyRequested (Const new) (Const patch) =
+  if new > 0 && new - patch <= 0
+    then Compose $ Just Proxy
+    else Compose Nothing
 
 readTChanConcat :: Semigroup a => TChan a -> IO a
 readTChanConcat c = atomically (readTChan c) >>= concatWaiting
