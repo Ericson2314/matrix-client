@@ -86,7 +86,7 @@ synchronize
   -> (SingleV SyncResponse Identity -> IO ())
   -> (Maybe SyncBatchToken -> IO ())
   -> m ()
-synchronize (userId, login) query mSince0 updateQueryResult' signalSyncDone = do
+synchronize (_userId, login) _query mSince0 updateQueryResult' signalSyncDone = do
   logger' <- asks $ view logger
   let
     qps = QPList_Cons Proxy (Just $ Filter'_Literal def)
