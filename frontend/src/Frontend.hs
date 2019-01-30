@@ -49,7 +49,7 @@ homePage = do
   dLoginIds <- queryLogins
   currentLoginId <- el "aside" $ do
     (loginEl, ()) <- selectElement def $ do
-      elAttr "option" (M.singleton "value" "") $ text "Select User"
+      elAttr "option" (M.fromList [("value", ""), ("name", "user")]) $ text "Select User"
       dyn_ $ ffor dLoginIds $ mapM_ $ mapM_ $ \(Id userIdText) -> do
         -- TODO make trivial once the key `Id UserId`
         let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId userIdText
@@ -61,7 +61,7 @@ homePage = do
   void $ dyn $ ffor dml $ mapM_ $ \l ->
     text $ T.pack $ show l
   do
-    doSync <- el "label" $ do
+    doSync <- el "div" $ el "label" $ do
       doSyncEl <- input def $ inputElement $ def
         & initialAttributes .~ M.fromList [ ("type", "radio")
                                           , ("name", "sync")
@@ -69,15 +69,14 @@ homePage = do
                                           ]
       text "do sync"
       pure $ _inputElement_value doSyncEl
-    el "label" $ do
+    el "div" $ el "label" $ do
       _ <- input def $ inputElement $ def
         & initialAttributes .~ M.fromList [ ("type", "radio")
                                           , ("name", "sync")
                                           , ("value", "dont")
-                                          , ("checked", "")
                                           ]
       text "don't sync"
-    el "div" $ dyn_ $ ffor doSync $ text . ("do sync " <>)
+    el "div" $ dyn_ $ ffor doSync $ text . ("Whether do sync: " <>)
     let
       wantSync = ffor3 currentLoginId dml doSync $ \ mUid mL doSync' -> do
         Id u <- mUid
@@ -90,10 +89,10 @@ homePage = do
         let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId u
         pure (userId, l)
     el "div" $ dyn_ $ ffor wantSync $ \upair ->
-      text $ T.pack $ show $ isJust upair
+      text $ T.pack $ ("wantSync: " <>) $ show $ isJust upair
     sync <- querySync wantSync
     el "div" $ dyn_ $ ffor sync $ mapM_ $ \s ->
-      text $ T.pack $ show $ _syncResponse_nextBatch s
+      text $ T.pack $ ("rsync next batch: " <>) $ show $ _syncResponse_nextBatch s
   pure ()
 
 loginPage :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
