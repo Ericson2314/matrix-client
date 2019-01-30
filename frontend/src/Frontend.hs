@@ -63,28 +63,27 @@ homePage = do
   do
     doSync <- el "div" $ el "label" $ do
       doSyncEl <- input def $ inputElement $ def
+        & inputElementConfig_initialValue .~ "do"
         & initialAttributes .~ M.fromList [ ("type", "radio")
                                           , ("name", "sync")
-                                          , ("value", "do")
                                           ]
       text "do sync"
-      pure $ _inputElement_value doSyncEl
-    el "div" $ el "label" $ do
-      _ <- input def $ inputElement $ def
+      pure $ _inputElement_checked doSyncEl
+    dontSync <- el "div" $ el "label" $ do
+      dontSyncEl <- input def $ inputElement $ def
+        & inputElementConfig_initialValue .~ "dont"
         & initialAttributes .~ M.fromList [ ("type", "radio")
                                           , ("name", "sync")
-                                          , ("value", "dont")
                                           ]
       text "don't sync"
-    el "div" $ dyn_ $ ffor doSync $ text . ("Whether do sync: " <>)
+      pure $ _inputElement_checked dontSyncEl
+    doSync' <- holdDyn False $ leftmost [updated doSync, not <$> updated dontSync]
+    el "div" $ dyn_ $ ffor doSync' $ text . ("Whether do sync: " <>) . T.pack . show
     let
-      wantSync = ffor3 currentLoginId dml doSync $ \ mUid mL doSync' -> do
+      wantSync = ffor3 currentLoginId dml doSync' $ \ mUid mL doSync'' -> do
         Id u <- mUid
         l <- mL
-        guard $ case doSync' of
-          "do" -> True
-          "dont" -> False
-          _ -> False -- TODO why
+        guard $ doSync''
         -- TODO make trivial once the key `Id UserId`
         let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId u
         pure (userId, l)
