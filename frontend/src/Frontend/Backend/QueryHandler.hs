@@ -89,7 +89,7 @@ synchronize
 synchronize (userId, login) query mSince0 updateQueryResult' signalSyncDone = do
   logger' <- asks $ view logger
   let
-    qps = QPList_Cons Proxy Nothing
+    qps = QPList_Cons Proxy (Just $ Filter'_Literal def)
         $ QPList_Cons Proxy mSince0
         $ QPList_Cons Proxy (Just True)
         $ QPList_Cons Proxy Nothing
