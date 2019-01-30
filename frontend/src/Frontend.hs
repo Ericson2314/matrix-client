@@ -7,7 +7,7 @@ import           Control.Monad.IO.Class
 import           Data.Attoparsec.Text (parseOnly)
 import           Data.Either (fromRight)
 import           Data.Foldable
-import           Data.Maybe (isNothing)
+import           Data.Maybe
 import qualified Data.Map as M
 import           Data.List.NonEmpty (NonEmpty (..))
 import           Data.Text (Text)
@@ -62,27 +62,37 @@ homePage = do
     text $ T.pack $ show l
   do
     doSync <- el "label" $ do
-      doSync <- input def $ inputElement $ def
+      doSyncEl <- input def $ inputElement $ def
         & initialAttributes .~ M.fromList [ ("type", "radio")
                                           , ("name", "sync")
+                                          , ("value", "do")
                                           ]
       text "do sync"
-      pure doSync
+      pure $ _inputElement_value doSyncEl
     el "label" $ do
       _ <- input def $ inputElement $ def
         & initialAttributes .~ M.fromList [ ("type", "radio")
                                           , ("name", "sync")
+                                          , ("value", "dont")
                                           , ("checked", "")
                                           ]
       text "don't sync"
-    sync <- querySync $ ffor3 currentLoginId dml (_inputElement_checked doSync) $ \ mUid mL doSync' -> do
-      Id u <- mUid
-      l <- mL
-      guard $ doSync'
-      -- TODO make trivial once the key `Id UserId`
-      let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId u
-      pure (userId, l)
-    dyn_ $ ffor sync $ mapM_ $ \s ->
+    el "div" $ dyn_ $ ffor doSync $ text . ("do sync " <>)
+    let
+      wantSync = ffor3 currentLoginId dml doSync $ \ mUid mL doSync' -> do
+        Id u <- mUid
+        l <- mL
+        guard $ case doSync' of
+          "do" -> True
+          "dont" -> False
+          _ -> False -- TODO why
+        -- TODO make trivial once the key `Id UserId`
+        let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId u
+        pure (userId, l)
+    el "div" $ dyn_ $ ffor wantSync $ \upair ->
+      text $ T.pack $ show $ isJust upair
+    sync <- querySync wantSync
+    el "div" $ dyn_ $ ffor sync $ mapM_ $ \s ->
       text $ T.pack $ show $ _syncResponse_nextBatch s
   pure ()
 

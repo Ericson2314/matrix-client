@@ -129,11 +129,11 @@ runFrontendQueries m = do
   (queryResultPatch, updateQueryResult') <- newTriggerEvent
   (a, requestUniq) <- flip cropQueryT queryResultPatch $ (m updateQueryResult')
   postBuild <- getPostBuild
-  let updatedRequest = AdditivePatch <$>
-        leftmost [updated requestUniq, tag (current requestUniq) postBuild]
+  let updatedRequest = leftmost
+        [updated requestUniq, tag (current requestUniq) postBuild]
   prerender blank $ do
     queryPatchChan <- liftIO newTChanIO
-    performEvent_ $ ffor updatedRequest $ \qp -> liftIO $
+    performEvent_ $ ffor (AdditivePatch <$> updatedRequest) $ \qp -> liftIO $
       atomically $ writeTChan queryPatchChan $ unAdditivePatch qp
     liftIO $ void $ forkIO $ flip runReaderT ctx $
       handleQueryUpdates updateQueryResult' queryPatchChan
@@ -141,6 +141,7 @@ runFrontendQueries m = do
     (syncDone, signalSyncDone) <- newTriggerEvent
     syncDone' <- foldDyn M.union mempty syncDone
     let
+      requestUniq' = unsafeBuildDynamic (sample $ current requestUniq) updatedRequest
       filterSyncs
         :: VSum V f
         -> Maybe ((UserId, Login), SingleV SyncResponse f)
@@ -150,7 +151,7 @@ runFrontendQueries m = do
       queryAndThenSum = ffilter null
         $ updated
         $ M.intersectionWith (,)
-        <$> (M.fromList . fmapMaybe filterSyncs . toListV <$> requestUniq)
+        <$> (M.fromList . fmapMaybe filterSyncs . toListV <$> requestUniq')
         <*> syncDone'
     performEvent_ $ ffor queryAndThenSum $ \querys ->
       ifor_ querys $ \key@(user, login) (query, mSince) ->
