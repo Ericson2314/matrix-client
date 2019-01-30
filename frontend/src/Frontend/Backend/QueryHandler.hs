@@ -140,17 +140,18 @@ runFrontendQueries m = do
   flip runReaderT ctx $ prerender blank $ do
     (syncDone, signalSyncDone) <- newTriggerEvent
     syncDone' <- foldDyn M.union mempty syncDone
-    let filterSyncs
-          :: VSum V f
-          -> Maybe ((UserId, Login), SingleV SyncResponse f)
-        filterSyncs (vtag :~> v) = case vtag of
-          V_Sync userId login -> Just ((userId, login), v)
-          _ -> Nothing
-        queryAndThenSum = ffilter null
-          $ updated
-          $ M.intersectionWith (,)
-          <$> (M.fromList . fmapMaybe filterSyncs . toListV <$> requestUniq)
-          <*> syncDone'
+    let
+      filterSyncs
+        :: VSum V f
+        -> Maybe ((UserId, Login), SingleV SyncResponse f)
+      filterSyncs (vtag :~> v) = case vtag of
+        V_Sync userId login -> Just ((userId, login), v)
+        _ -> Nothing
+      queryAndThenSum = ffilter null
+        $ updated
+        $ M.intersectionWith (,)
+        <$> (M.fromList . fmapMaybe filterSyncs . toListV <$> requestUniq)
+        <*> syncDone'
     performEvent_ $ ffor queryAndThenSum $ \querys ->
       ifor_ querys $ \key@(user, login) (query, mSince) ->
         synchronize @js key query mSince
