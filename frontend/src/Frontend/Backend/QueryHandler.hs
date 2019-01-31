@@ -13,6 +13,7 @@ import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Logger
+import           Data.Functor.Compose
 import qualified Data.Map as M
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
@@ -41,13 +42,16 @@ handleQueryUpdates
   => (FrontendV Identity -> IO ())
   -> TChan (FrontendV (Const SelectedCount))
   -> ReaderT r IO ()
-handleQueryUpdates updateQueryResult' queryPatchChan = do
-  forever $ do
-    patch <- liftIO $ readTChanConcat queryPatchChan
-    -- TODO: Crop out negative selected counts in patch.
-    patch' <- traverseWithKeyV handleV patch
-    flip runReaderT updateQueryResult' $ patchQueryResult patch'
- where
+handleQueryUpdates updateQueryResult' queryPatchChan = loop mempty
+  where
+    loop oldQuery = do
+      patch <- liftIO $ readTChanConcat queryPatchChan
+      let newQuery = patch <> oldQuery
+          requested = cropV newlyRequested newQuery patch
+      forM_ (mapMaybeV getCompose requested) $ \r -> do
+        resultPatch <- traverseWithKeyV handleV r
+        flip runReaderT updateQueryResult' $ patchQueryResult resultPatch
+      loop newQuery
     handleV
       :: forall f p. V f -> f p -> ReaderT r IO (f Identity)
     handleV gadtKey vessel = case gadtKey of
@@ -69,6 +73,17 @@ handleQueryUpdates updateQueryResult' queryPatchChan = do
       -- TODO
       V_Sync _ _ -> pure $ SingleV $ Identity $ First $ Nothing
 
+
+-- | Given a count of newly selected information and a delta, return
+-- `Compose $ Just Proxy` if the key was previously not selected and now is.
+newlyRequested
+  :: Const SelectedCount a
+  -> Const SelectedCount a
+  -> Compose Maybe Proxy a
+newlyRequested (Const new) (Const patch) =
+  if new > 0 && new - patch <= 0
+    then Compose $ Just Proxy
+    else Compose Nothing
 
 readTChanConcat :: Semigroup a => TChan a -> IO a
 readTChanConcat c = atomically (readTChan c) >>= concatWaiting
