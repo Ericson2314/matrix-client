@@ -13,7 +13,6 @@ import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Data.Functor.Compose
-import           Data.IORef
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
 import           Data.Semigroup
@@ -36,18 +35,16 @@ handleQueryUpdates
   => (FrontendV Identity -> IO ())
   -> TChan (FrontendV (Const SelectedCount))
   -> ReaderT r IO ()
-handleQueryUpdates updateQueryResult' queryPatchChan = do
-  oldQueryRef <- liftIO $ newIORef mempty
-  forever $ do
-    oldQuery <- liftIO $ readIORef oldQueryRef
-    patch <- liftIO $ readTChanConcat queryPatchChan
-    let newQuery = patch <> oldQuery
-        requested = cropV newlyRequested newQuery patch
-    forM_ (mapMaybeV getCompose requested) $ \r -> do
-      resultPatch <- traverseWithKeyV handleV r
-      flip runReaderT updateQueryResult' $ patchQueryResult resultPatch
-    liftIO $ writeIORef oldQueryRef newQuery
- where
+handleQueryUpdates updateQueryResult' queryPatchChan = loop mempty
+  where
+    loop oldQuery = do
+      patch <- liftIO $ readTChanConcat queryPatchChan
+      let newQuery = patch <> oldQuery
+          requested = cropV newlyRequested newQuery patch
+      forM_ (mapMaybeV getCompose requested) $ \r -> do
+        resultPatch <- traverseWithKeyV handleV r
+        flip runReaderT updateQueryResult' $ patchQueryResult resultPatch
+      loop newQuery
     handleV
       :: forall f p. V f -> f p -> ReaderT r IO (f Identity)
     handleV gadtKey vessel = case gadtKey of
