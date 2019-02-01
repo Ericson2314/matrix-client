@@ -42,6 +42,7 @@ deriveArgDictV ''V
 type FrontendV = Vessel V
 
 type FrontendQuery = FrontendV (Const SelectedCount)
+type FrontendQuery' = FrontendV Proxy
 type FrontendQueryResult = FrontendV Identity
 
 queryLogin
