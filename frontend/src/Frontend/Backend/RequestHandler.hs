@@ -15,10 +15,11 @@ import           Data.Semigroup
 import qualified Data.Set as S
 import           Data.Vessel
 import           Database.Beam
+import           Database.Beam.Keyed
 import           Database.Beam.Sqlite
 import           GHC.TypeLits
-import           Obelisk.Database.Beam.Entity
-import           Reflex.Dom.Prerender.Performable
+import           Language.Javascript.JSaddle.Types
+import           Reflex.Dom.Core (HasJSContext)
 
 import           Matrix.Client.Types as M hiding (Event)
 import           Matrix.Identifiers as M
@@ -52,11 +53,13 @@ convertErrors handleSuccessful = \case
   Right (Right (XhrThisStatus sentinel (Right (Right r)))) -> handleSuccessful sentinel r
 
 handleLocalFrontendRequest
-  :: forall js m a r
-  .  ( JSConstraints js m, MonadReader r m
+  :: forall m a r
+  .  ( MonadReader r m
      , GivesSQLiteConnection r
      , HasQueryCallback r
      , HasLogger r
+     , MonadJSM m
+     , HasJSContext m
      )
   => FrontendRequest a
   -> (a -> LoggingT (ReaderT r IO) ())
@@ -91,24 +94,24 @@ handleLocalFrontendRequest req0 k = do
         LoginRespKey_429 -> pure $ Left $ FrontendError_ResponseError r
         LoginRespKey_200 -> do
           let uid = r ^. loginResponse_userId
-              uid' = Id $ printUserId uid
+              uid' = IdKey $ printUserId uid
               newValue = Login
                 { _login_homeServer = hs
                 , _login_accessToken = Just $ r ^. loginResponse_accessToken
                 , _login_deviceId = Just $ r ^. loginResponse_deviceId
                 , _login_isActive = True
                 }
-              newEntity = Entity uid' newValue
+              newKeyed = Keyed uid' newValue
           lids <- withConnection $ \conn -> liftIO $ runBeamSqlite conn $ do
             -- TODO: Add upsert support for beam-sqlite.
-            old <- runSelectReturningOne $ lookup_ (_db_login db) $ EntityKey uid'
+            old <- runSelectReturningOne $ lookup_ (_db_login db) $ RowKey $ uid'
             runUpdate $ update (_db_login db)
-              (\login -> (login ^. entity_value . login_isActive) <-. val_ False)
+              (\login -> (login ^. value . login_isActive) <-. val_ False)
               (\_ -> val_ True)
             case old of
-              Nothing -> runInsert $ insert (_db_login db) $ insertValues [newEntity]
-              Just _ -> runUpdate $ save (_db_login db) newEntity
-            runSelectReturningList $ select $ _entity_key <$> all_ (_db_login db)
+              Nothing -> runInsert $ insert (_db_login db) $ insertValues [newKeyed]
+              Just _ -> runUpdate $ save (_db_login db) newKeyed
+            runSelectReturningList $ select $ view key <$> all_ (_db_login db)
           $(logInfo) $ "Sucessfully logged in user: " <> printUserId uid
           lift $ patchQueryResult $ mconcat
             [ singletonV V_Login $ MapV $

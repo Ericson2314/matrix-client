@@ -148,7 +148,7 @@ instance DecidablableLookup SyncRespKey where
       sameNat (Proxy :: Proxy status)
               (Proxy :: Proxy 200)
     of
-      Just Refl -> Proved $ This SyncRespKey_200
+      Just Refl -> Proved $ Some SyncRespKey_200
 
 data Filter'
   = Filter'_Id Text

@@ -22,14 +22,13 @@ import           Data.Proxy
 import           Data.Some
 import           Data.Text (Text)
 import qualified Data.Text as T
-import           Data.Text.Encoding
+import           Data.Text.Encoding hiding (Some)
 import           Data.Void
 import           Data.Word
 import           GHC.Generics
 import           GHC.TypeLits
 import           Language.Javascript.JSaddle.Types
 import           Reflex.Dom.Core
-import           Reflex.Dom.Prerender.Performable
 
 data ErrorXhrNoBody = ErrorXhrNoBody
   deriving (Eq, Ord, Show)
@@ -69,8 +68,8 @@ performRequestCallbackWithError k req =
 class p (f a) => ComposeC (p :: k2 -> Constraint) (f :: k1 -> k2) (a :: k1)
 instance p (f a) => ComposeC p f a
 
-class (ArgDict f, ConstraintsFor f c) => HasClass (c :: k -> Constraint) f
-instance (ArgDict f, ConstraintsFor f c) => HasClass (c :: k -> Constraint) f
+class (ArgDict c f, ConstraintsFor f c) => HasClass (c :: k -> Constraint) f
+instance (ArgDict c f, ConstraintsFor f c) => HasClass (c :: k -> Constraint) f
 
 -- TODO GHC 8.6 use forall constraints. This is garbage sauce.
 type RespTyConstr c respPerCode = Forall (ComposeC (HasClass c) respPerCode)
@@ -88,8 +87,9 @@ class DecidablableLookup (mapRel :: Nat -> k -> Type) where
   liftedLookup :: forall n. KnownNat n => Decision (Some (mapRel n))
 
 performXhrCallbackWithErrorJSON
-  :: forall js m request respPerCode
-  .  ( JSConstraints js m
+  :: forall m request respPerCode
+  .  ( MonadJSM m
+     , HasJSContext m
      , ToJSON request
      -- , GetStatusKey respPerCode
      , RespTyConstr FromJSON respPerCode
@@ -113,7 +113,7 @@ performXhrCallbackWithErrorJSON method url auth request k = do
       Nothing -> error "impossible, HTTP status are always positive, need a better `someNatVal`"
       Just (SomeNat (Proxy :: Proxy status)) -> case liftedLookup of
         Disproved _prf -> Left ErrorXhrInvalidStatus
-        Proved (This (statusKey :: respPerCode status resp)) -> Right $ XhrThisStatus statusKey $
+        Proved (Some (statusKey :: respPerCode status resp)) -> Right $ XhrThisStatus statusKey $
           case _xhrResponse_responseText r of
             Nothing -> Left ErrorXhrNoBody
             Just raw -> Right $ case inst of
@@ -230,14 +230,15 @@ type Route
 performRoutedRequest
   :: forall
        (routeRelation :: Route)
-       js m
+       m
        (method :: Method)
        (route :: RoutePath)
        (queryParams :: QueryParams)
        (needsAuth :: Bool)
        request
        (respPerCode :: RespRelation)
-  .  ( JSConstraints js m
+  .  ( MonadJSM m
+     , HasJSContext m
      , KnownRoute route
      , KnownNeedsAuth needsAuth
      , ToJSON request
@@ -272,7 +273,7 @@ performRoutedRequest _c hs = _knownNeedsAuth_fmaplike @needsAuth
             QPList_Nil -> ""
             _ -> "?" <> T.intercalate "&" (f qps)
           url = (T.intercalate "/" $ hs : routeList) <> qparams
-        performXhrCallbackWithErrorJSON @js @m @request @respPerCode
+        performXhrCallbackWithErrorJSON @m @request @respPerCode
           method url mAuth r k)
     (reifyRoute @route))
   (makeToken @needsAuth)

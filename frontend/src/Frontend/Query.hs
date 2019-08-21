@@ -9,15 +9,15 @@ import qualified Data.Map.Monoidal as MM
 import           Data.Semigroup
 import           Data.Set
 import           Data.Vessel
-import           Obelisk.Database.Beam.Entity
+import           Database.Beam.Keyed
 import           Reflex
 
 import           Frontend.Schema
 
-type EntityMapV table = MapV (Key table) (First (Maybe (table Identity)))
+type KeyedMapV table = MapV (Key table) (First (Maybe (table Identity)))
 
 data V f where
-  V_Login :: V (EntityMapV Login)
+  V_Login :: V (KeyedMapV Login)
   V_Logins :: V (SingleV (Set (Key Login)))
 
 deriving instance Eq (V f)
@@ -26,7 +26,7 @@ deriving instance Show (V f)
 
 deriveGEq ''V
 deriveGCompare ''V
-deriveArgDictV ''V
+deriveArgDict ''V
 
 type FrontendV = Vessel V
 

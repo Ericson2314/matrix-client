@@ -4,9 +4,9 @@ module Frontend.Schema where
 import Control.Lens
 import Data.Text
 import Database.Beam
+import Database.Beam.Keyed
 import Database.Beam.Migrate
 import Database.Beam.Sqlite
-import Obelisk.Database.Beam.Entity
 
 import qualified Matrix.Identifiers as M
 
@@ -22,14 +22,15 @@ data Login f = Login
 
 deriving instance Show (Login Identity)
 
-makeLenses ''Login
-
 -- Until https://github.com/tathougies/beam/issues/262 is resolved, this is too
 -- annoying.
-type instance KeyT Login = Id Text -- M.UserId
+type instance Id Login = Text -- M.UserId
+instance HasKey Login
+
+makeLenses ''Login
 
 data Db f = Db
-  { _db_login :: f (TableEntity (EntityT Login))
+  { _db_login :: f (TableEntity (KeyedT Login))
   } deriving (Generic, Database be)
 
 db :: DatabaseSettings Sqlite Db
@@ -37,7 +38,7 @@ db = unCheckDatabase checkedDb
 
 checkedDb :: CheckedDatabaseSettings Sqlite Db
 checkedDb = withDbModification defaultMigratableDbSettings $ Db
-  { _db_login = checkedEntity "login" (Id $ checkedFieldNamed "user_id") $ Login
+  { _db_login = checkedKeyed "login" (IdKey $ checkedFieldNamed "user_id") $ Login
       { _login_homeServer = checkedFieldNamed "home_server"
       , _login_accessToken = checkedFieldNamed "access_token"
       , _login_deviceId = checkedFieldNamed "device_id"

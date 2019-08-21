@@ -112,7 +112,7 @@ instance DecidablableLookup LoginRespKey where
       sameNat (Proxy :: Proxy status)
               (Proxy :: Proxy 200)
     of
-      Just Refl -> Proved $ This LoginRespKey_200
+      Just Refl -> Proved $ Some LoginRespKey_200
 
 data LoginRequest = LoginRequest
   { _loginRequest_identifier :: UserIdentifier
