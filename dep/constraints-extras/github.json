@@ -1,7 +1,7 @@
 {
   "owner": "obsidiansystems",
   "repo": "constraints-extras",
-  "branch": "th-leading-args",
-  "rev": "9329f35f779979d499b3563e310887391ade3c2e",
-  "sha256": "1zmr7h8j6zllc4ql70i8mygqfcdp2k146ng0r4y7yxnl12x26ra4"
+  "branch": "develop",
+  "rev": "30f10c03dd96e50c089f0613f99951805bff7397",
+  "sha256": "196b8kbcp744gqhh964m54vw4cdg15p6lc7cm2vxbh15cbqdz7ir"
 }

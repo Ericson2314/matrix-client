@@ -321,7 +321,7 @@ instance DecidablableLookup JoinedRoomsRespKey where
       sameNat (Proxy :: Proxy status)
               (Proxy :: Proxy 200)
     of
-      Just Refl -> Proved $ This JoinedRoomsRespKey_200
+      Just Refl -> Proved $ Some JoinedRoomsRespKey_200
 
 data JoinedRoomsRequest = JoinedRoomsRequest
   deriving (Eq, Ord, Show, Generic)
@@ -381,7 +381,7 @@ instance DecidablableLookup JoinRespKey where
       sameNat (Proxy :: Proxy status)
               (Proxy :: Proxy 200)
     of
-      Just Refl -> Proved $ This JoinRespKey_200
+      Just Refl -> Proved $ Some JoinRespKey_200
 
 data JoinRequest = JoinRequest
   { _joinRequest_thirdPartySigned :: Maybe ThirdPartySigned
@@ -626,7 +626,7 @@ instance DecidablableLookup PublicRoomsRespKey where
       sameNat (Proxy :: Proxy status)
               (Proxy :: Proxy 200)
     of
-      Just Refl -> Proved $ This PublicRoomsRespKey_200
+      Just Refl -> Proved $ Some PublicRoomsRespKey_200
 
 data PublicRoomsRequest = PublicRoomsRequest
   deriving (Eq, Ord, Show, Generic)

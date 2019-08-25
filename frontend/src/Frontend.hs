@@ -12,7 +12,7 @@ import qualified Data.Map as M
 import           Data.List.NonEmpty (NonEmpty (..))
 import           Data.Text (Text)
 import qualified Data.Text as T
-import           Obelisk.Database.Beam.Entity
+import           Database.Beam.Keyed hiding (value)
 import           Obelisk.Frontend
 import           Obelisk.Route
 import           Obelisk.Route.Frontend
@@ -38,7 +38,7 @@ frontend = Frontend
       FrontendRoute_ListPublicRooms -> publicRoomListing
   }
 
-homePage :: (ObeliskWidget t x (R FrontendRoute) m, MonadQuery t FrontendQuery m) => m ()
+homePage :: (ObeliskWidget js t (R FrontendRoute) m, MonadQuery t FrontendQuery m) => m ()
 homePage = do
   login <- button def $ text "Login"
   setRoute $ FrontendRoute_Login :/ () <$ login
@@ -49,14 +49,22 @@ homePage = do
   dLoginIds <- queryLogins
   currentLoginId <- el "aside" $ do
     (loginEl, ()) <- selectElement def $ do
+<<<<<<< HEAD
       elAttr "option" (M.fromList [("value", ""), ("name", "user")]) $ text "Select User"
       dyn_ $ ffor dLoginIds $ mapM_ $ mapM_ $ \(Id userIdText) -> do
+||||||| merged common ancestors
+      elAttr "option" (M.singleton "value" "") $ text "Select User"
+      dyn_ $ ffor dLoginIds $ mapM_ $ mapM_ $ \(Id userIdText) -> do
+=======
+      elAttr "option" (M.singleton "value" "") $ text "Select User"
+      dyn_ $ ffor dLoginIds $ mapM_ $ mapM_ $ \(IdKey userIdText) -> do
+>>>>>>> master
         -- TODO make trivial once the key `Id UserId`
         let userId = fromRight (error "invalid user id!") $ parseOnly parseUserId userIdText
         elAttr "option" (M.singleton "value" userIdText) $ text $ printUserId userId
     pure $ ffor (_selectElement_value loginEl) $ \case
       "" -> Nothing
-      lid -> Just $ Id lid
+      lid -> Just $ IdKey lid
   dml <- queryLogin currentLoginId
   void $ dyn $ ffor dml $ mapM_ $ \l ->
     text $ T.pack $ show l
@@ -94,7 +102,7 @@ homePage = do
       text $ T.pack $ ("rsync next batch: " <>) $ show $ _syncResponse_nextBatch s
   pure ()
 
-loginPage :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
+loginPage :: (ObeliskWidget js t (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
 loginPage = do
   homeServerEl <- input def $ inputElement $ def
     & inputElementConfig_initialValue .~ "https://matrix.org"
@@ -112,9 +120,9 @@ loginPage = do
       <*> (current $ value passwordEl)
 
   setRoute $ FrontendRoute_Home :/ () <$ filterRight loginResult
-  prerender blank $ performEvent_ $ liftIO . print <$> filterLeft loginResult
+  prerender_ blank $ performEvent_ $ liftIO . print <$> filterLeft loginResult
 
-publicRoomListing :: (ObeliskWidget t x (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
+publicRoomListing :: (ObeliskWidget js t (R FrontendRoute) m, MonadFrontendRequest t m) => m ()
 publicRoomListing = do
   let defaultHomeServer = ServerName
         { _serverName_host = Host_Domain $ "matrix" :| ["org"]

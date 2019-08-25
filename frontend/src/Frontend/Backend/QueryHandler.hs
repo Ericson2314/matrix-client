@@ -13,7 +13,6 @@ import           Control.Monad.Fix
 import           Control.Monad.IO.Class
 import           Control.Monad.Reader
 import           Control.Monad.Logger
-import           Data.Functor.Compose
 import qualified Data.Map as M
 import qualified Data.Map.Monoidal as MM
 import           Data.Maybe
@@ -22,12 +21,13 @@ import           Data.Semigroup
 import qualified Data.Set as S
 import           Data.Vessel
 import           Database.Beam
+import           Database.Beam.Keyed
 import           Database.Beam.Sqlite
-import           Obelisk.Database.Beam.Entity
+import           Language.Javascript.JSaddle.Types
 import           Reflex.Dom.Core hiding (Key, select)
 -- TODO move to reflex. This method doesn't use web stuff.
 import           Reflex.Dom.WebSocket.Query (cropQueryT)
-import           Reflex.Dom.Prerender.Performable
+--import           Reflex.Dom.Prerender.Performable 
 
 import           Matrix.Identifiers
 import           Matrix.Client.Types hiding (Event, Login)
@@ -47,7 +47,7 @@ handleQueryUpdates updateQueryResult' queryPatchChan = loop mempty
   where
     loop oldQuery = do
       newQuery <- liftIO $ readTChanConcat queryPatchChan
-      forM_ (subtractV (\ Proxy Proxy -> Nothing) newQuery oldQuery) $ \patchQuery -> do
+      forM_ (subtractV newQuery oldQuery) $ \patchQuery -> do
         resultPatch <- traverseWithKeyV handleV patchQuery
         flip runReaderT updateQueryResult' $ patchQueryResult resultPatch
       loop $ newQuery
@@ -60,14 +60,14 @@ handleQueryUpdates updateQueryResult' queryPatchChan = loop mempty
             logins <- runSelectReturningList $ select $ do
               login <- all_ (_db_login db)
               guard_ $ in_
-                (getId $ _entity_key login)
-                (fmap (val_ . getId) $ MM.keys $ unMapV vessel)
+                (login ^. key)
+                (fmap val_ $ MM.keys $ unMapV vessel)
               pure login
-            pure $ MapV $ MM.fromList $ ffor logins $ \(Entity k v) -> (k, Identity $ First $ Just v)
+            pure $ MapV $ MM.fromList $ ffor logins $ \(Keyed k v) -> (k, Identity $ First $ Just v)
       V_Logins ->
         fmap (fromMaybe $ SingleV $ Identity $ First Nothing) $ withConnection $ \conn ->
           liftIO $ runBeamSqlite conn $ do
-            logins <- runSelectReturningList $ select $ _entity_key <$> all_ (_db_login db)
+            logins <- runSelectReturningList $ select $ view key <$> all_ (_db_login db)
             pure $ SingleV $ Identity $ First $ Just $ S.fromList logins
       -- TODO
       V_Sync _ _ -> pure $ SingleV $ Identity $ First $ Nothing
@@ -81,8 +81,10 @@ readTChanConcat c = atomically (readTChan c) >>= concatWaiting
       Nothing -> return b
 
 synchronize
-  :: forall js m r p
-  .  (JSConstraints js m, MonadReader r m, HasLogger r)
+  :: forall m r p
+  .  ( HasJSContext m, MonadJSM m
+     , MonadReader r m, HasLogger r
+     )
   => (UserId, Login)
   -> SingleV SyncResponse p
   -> Maybe SyncBatchToken
@@ -113,22 +115,32 @@ synchronize (_userId, login) _query mSince0 updateQueryResult' signalSyncDone = 
           $(logInfo) $ "Failed to synced with server "
           liftIO $ signalSyncDone Nothing
 
+type X m t = 
+       ( MonadFix m
+       , MonadHold t m
+       , PerformEvent t m
+       , TriggerEvent t m
+       )
+
+type Y m t r =
+       ( X m t
+       , HasJSContext m
+       , MonadJSM m
+       )
+
 runFrontendQueries
   :: forall m t js r a
-  .  ( MonadFix m
-     , MonadHold t m
-     , PerformEvent t m
-     , TriggerEvent t m
-     , MonadIO m
-     , Prerender js m
+  .  ( X m t
+     , Y (Client m) t r
+     , Y (Performable (Client m)) t r
+     , Prerender js t m
      , PostBuild t m
-     , MonadReader r m, GivesSQLiteConnection r, HasLogger r
+     , GivesSQLiteConnection r, HasLogger r
      )
-  => ((FrontendV Identity -> IO ())
-      -> QueryT t (FrontendV (Const SelectedCount)) m a)
+  => Dynamic t r
+  -> ((FrontendV Identity -> IO ()) -> QueryT t (FrontendV (Const SelectedCount)) m a)
   -> m a
-runFrontendQueries m = do
-  ctx <- ask
+runFrontendQueries dctx m = do
   (queryResultPatch, updateQueryResult') <- newTriggerEvent
   (a, requestUniq :: Dynamic t FrontendQuery) <-
     flip cropQueryT queryResultPatch $ m updateQueryResult'
@@ -142,13 +154,14 @@ runFrontendQueries m = do
     bRequestUniq = fromMaybe mempty . f <$> current requestUniq
   postBuild <- getPostBuild
   let updatedRequest = leftmost [eRequestUniq, tag bRequestUniq postBuild]
-  prerender blank $ do
+  prerender_ blank $ do
     queryPatchChan <- liftIO newTChanIO
     performEvent_ $ ffor updatedRequest $ \qp -> liftIO $
       atomically $ writeTChan queryPatchChan qp
-    liftIO $ void $ forkIO $ flip runReaderT ctx $
-      handleQueryUpdates updateQueryResult' queryPatchChan
-  flip runReaderT ctx $ prerender blank $ do
+    pb <- getPostBuild
+    performEvent_ $ ffor (tag (current dctx) pb) $ \ctx ->
+      liftIO $ void $ forkIO $ flip runReaderT ctx $
+        handleQueryUpdates updateQueryResult' queryPatchChan
     (syncDone, signalSyncDone) <- newTriggerEvent
     syncDone' <- foldDyn M.union mempty syncDone
     let
@@ -165,8 +178,8 @@ runFrontendQueries m = do
         <$> (M.fromList . fmapMaybe filterSyncs . toListV <$> requestUniq')
         <*> syncDone'
     performEvent_ $ ffor queryAndThenSum $ \querys ->
-      ifor_ querys $ \key@(user, login) (query, mSince) ->
-        synchronize @js key query mSince
+      ifor_ querys $ \key'@(user, login) (query, mSince) ->
+        synchronize key' query mSince
           (updateQueryResult' . singletonV (V_Sync user login))
-          (signalSyncDone . M.singleton key)
+          (signalSyncDone . M.singleton key')
   return a

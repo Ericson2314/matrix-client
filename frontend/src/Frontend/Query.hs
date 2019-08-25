@@ -11,7 +11,7 @@ import           Data.Kind (Type)
 import           Data.Semigroup
 import           Data.Set
 import           Data.Vessel
-import           Obelisk.Database.Beam.Entity
+import           Database.Beam.Keyed
 import           Reflex
 
 import           Matrix.Identifiers
@@ -20,10 +20,10 @@ import           Matrix.Client.Types.Event.Route
 import           Frontend.Schema
 --import           Frontend.Query.Sync
 
-type EntityMapV table = MapV (Key table) (First (Maybe (table Identity)))
+type KeyedMapV table = MapV (Key table) (First (Maybe (table Identity)))
 
 data V :: ((Type -> Type) -> Type) -> Type where
-  V_Login :: V (EntityMapV LoginT)
+  V_Login :: V (KeyedMapV LoginT)
   V_Logins :: V (SingleV (Set (Key LoginT)))
   V_Sync
     :: UserId
@@ -37,7 +37,7 @@ deriving instance Show (V f)
 
 deriveGEq ''V
 deriveGCompare ''V
-deriveArgDictV ''V
+deriveArgDict ''V
 
 type FrontendV = Vessel V
 
